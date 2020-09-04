@@ -5,6 +5,7 @@ use std::{fmt, result};
 
 #[macro_use]
 mod util;
+pub mod multicodec;
 
 /// Re-export multibase. Checkout [multibase][multibase-link] for
 /// further details.
@@ -20,14 +21,16 @@ pub type Result<T> = result::Result<T, Error>;
 /// Each variant carries a prefix, typically identifying the
 /// error location.
 pub enum Error {
+    IOError(String, String),
     Invalid(String, String),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
-        use Error::Invalid;
+        use Error::{IOError, Invalid};
 
         match self {
+            IOError(p, msg) => write!(f, "{} IOError: {}", p, msg),
             Invalid(p, msg) => write!(f, "{} Invalid: {}", p, msg),
         }
     }

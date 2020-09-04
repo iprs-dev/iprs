@@ -11,5 +11,9 @@ documentation = "https://docs.rs/multiformats/"
 edition = "2018"
 
 [dependencies]
-unsigned-varint = "0.5"
+unsigned-varint = "*"
 multibase = "*"
+
+[dev-dependencies]
+reqwest = { version = "0.10.8", features = ["blocking"] }
+parse_int = "0.4.0"
