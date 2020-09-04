@@ -35,8 +35,8 @@ subset of, typically, ASCII code. Purpose,
 * A bridge to back-compatibility.
 * When a channel cannot, do-not, allow binary data.
 
-Refer [https://github.com/multiformats/multibase] for details. And there
-is a rust implementation [rust-multibase][rust-multibase].
+Refer [multibase][multibase] for details. And there is a rust
+implementation [rust-multibase][rust-multibase].
 
 Multicodec
 ----------
@@ -59,6 +59,7 @@ List of all active references to multiformat specification.
 
 [unsigned-varint]: https://github.com/multiformats/unsigned-varint
 [rust-multibase]: https://github.com/multiformats/rust-multibase
+[multibase]: https://github.com/multiformats/multibase
 [multicodec]: https://github.com/multiformats/multicodec
 [CID]: https://github.com/ipld/cid
 [multicodec-table]: https://github.com/multiformats/multicodec/blob/master/table.csv
