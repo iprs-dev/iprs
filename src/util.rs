@@ -2,22 +2,22 @@
 ///
 /// Here are few possible ways:
 ///
-/// ```
+/// ```ignore
 /// use crate::Error;
 /// err_at!(Error::Invalid(String::default(), "bad argument"));
 /// ```
 ///
-/// ```
+/// ```ignore
 /// use crate::Error;
 /// err_at!(Invalid, msg: format!("bad argument"));
 /// ```
 ///
-/// ```
+/// ```ignore
 /// use crate::Error;
 /// err_at!(Invalid, std::io::read(buf));
 /// ```
 ///
-/// ```
+/// ```ignore
 /// use crate::Error;
 /// err_at!(Invalid, std::fs::read(file_path), format!("read failed"));
 /// ```
