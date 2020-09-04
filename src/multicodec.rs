@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, io};
+use std::{convert::TryFrom, fmt, io, result};
 
 use crate::{Error, Result};
 
@@ -12,12 +12,21 @@ macro_rules! codec {
         /// Refer [multicodec][multicodec] for details.
         ///
         /// multicodec: https://github.com/multiformats/multicodec
-        #[derive(Clone)]
+        #[derive(Clone, Eq, PartialEq)]
         pub enum Multicodec {
             $(
                 #[$doc]
                 $label = $dval,
             )*
+        }
+
+        impl fmt::Debug for Multicodec {
+            fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+                let name = match self {
+                    $(Multicodec::$label => $name,)*
+                };
+                write!(f, "{:?}", name)
+            }
         }
 
         impl TryFrom<u64> for Multicodec {
@@ -60,6 +69,11 @@ macro_rules! codec {
             vec![
                 $(vec![$name.to_string(), format!("0x{:x}", $dval), $tag.to_string()],)*
             ]
+        }
+
+        #[cfg(test)]
+        fn list_variants() -> Vec<Multicodec> {
+            vec![ $(Multicodec::$label,)* ]
         }
     };
 }
@@ -1066,6 +1080,26 @@ mod tests {
             assert_eq!(x[0], y[0], "{:?}, {:?}", x, y);
             assert_eq!(x[1], y[1], "{:?}, {:?}", x, y);
             assert_eq!(x[2], y[2], "{:?}, {:?}", x, y);
+        }
+    }
+
+    #[test]
+    fn test_codec() {
+        for code in list_variants() {
+            let buf = code.encode().unwrap();
+
+            let mut buf_with = Vec::default();
+            assert_eq!(
+                code.encode_with(&mut buf_with).unwrap(),
+                buf.len(),
+                "{:?}",
+                code
+            );
+            assert_eq!(&buf_with[..buf.len()], buf.as_slice(), "{:?}", code);
+
+            let (res_code, res_buf) = Multicodec::from_slice(&buf).unwrap();
+            assert_eq!(res_code, code, "{:?}", code);
+            assert_eq!(res_buf, vec![].as_slice(), "{:?}", code);
         }
     }
 }
