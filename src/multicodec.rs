@@ -1,3 +1,7 @@
+//! Module implement [multicodec][multicodec] specification.
+//!
+//! [multicodec]: https://github.com/multiformats/multicodec
+
 use lazy_static::lazy_static;
 
 use std::{convert::TryFrom, fmt, io, result};
@@ -73,17 +77,23 @@ impl<'a> TryFrom<&'a str> for Multicodec {
 }
 
 impl Multicodec {
+    /// Convert incoming stream of bytes into multicodec value.
+    ///
+    /// Return [Error::Invalid] if buf's content can't be recognised.
     pub fn from_slice(buf: &[u8]) -> Result<(Multicodec, &[u8])> {
         let (code, rem) = err_at!(Invalid, unsigned_varint::decode::u128(buf))?;
         Ok((Multicodec { code }, rem))
     }
 
+    /// Encode Multicodec to unsigned_varint bytes.
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut buf: [u8; 19] = Default::default();
         let slice = unsigned_varint::encode::u128(self.code, &mut buf);
         Ok(slice.to_vec())
     }
 
+    /// Similar to encode() by avoids allocation, by using supplied
+    /// buffer `buf`.
     pub fn encode_with<W>(&self, buf: &mut W) -> Result<usize>
     where
         W: io::Write,
@@ -111,7 +121,7 @@ lazy_static! {
     ///
     /// Refer [multicodec][multicodec] for details.
     ///
-    /// multicodec: https://github.com/multiformats/multicodec
+    /// [multicodec]: https://github.com/multiformats/multicodec
     pub static ref TABLE: [Codepoint; 455] = [
         Codepoint {
             code: 0x00,

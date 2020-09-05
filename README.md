@@ -32,11 +32,10 @@ base-encoding definitions that can convert binary-data to a small
 subset of, typically, ASCII code. Purpose,
 
 * Printable character set.
-* A bridge to back-compatibility.
+* A bridge to backward-compatibility.
 * When a channel cannot, do-not, allow binary data.
 
-Refer [multibase][multibase] for details. And there is a rust
-implementation [rust-multibase][rust-multibase].
+Refer [multibase][multibase] for details.
 
 Multicodec
 ----------
@@ -50,12 +49,15 @@ Refer [multicodec spec][multicodec] for details.
 
 **Reference**:
 
-List of all active references to multiformat specification(s).
+List of active multiformat specification(s).
 
 * Micro-site, http://multiformats.io
 * Unsigned varint, https://github.com/multiformats/unsigned-varint
 * Multicodec, https://github.com/multiformats/multicodec
 
+There are other implementations that can suite your need better:
+
+* [rust implementation of multi-base][rust-multibase]
 
 [unsigned-varint]: https://github.com/multiformats/unsigned-varint
 [rust-multibase]: https://github.com/multiformats/rust-multibase

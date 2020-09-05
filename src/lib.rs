@@ -7,11 +7,8 @@ use std::{fmt, result};
 mod util;
 pub mod multicodec;
 
-/// Re-export multibase. Checkout [multibase][multibase-link] for
-/// further details.
-///
-/// [multibase-link]: https://github.com/multiformats/multibase
 pub use multibase;
+pub use multicodec::Multicodec;
 
 /// Type alias for Result return type, used by this package.
 pub type Result<T> = result::Result<T, Error>;
