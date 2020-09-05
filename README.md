@@ -50,7 +50,7 @@ Refer [multicodec spec][multicodec] for details.
 
 **Reference**:
 
-List of all active references to multiformat specification.
+List of all active references to multiformat specification(s).
 
 * Micro-site, http://multiformats.io
 * Unsigned varint, https://github.com/multiformats/unsigned-varint
