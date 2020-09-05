@@ -25,12 +25,13 @@
 #[macro_export]
 macro_rules! err_at {
     ($e:expr) => {{
-        use Error::Invalid;
+        use Error::{IOError, Invalid};
 
         let p = format!("{}:{}", file!(), line!());
         match $e {
             Ok(val) => Ok(val),
             Err(Invalid(_, s)) => Err(Invalid(p, s)),
+            Err(IOError(_, s)) => Err(IOError(p, s)),
         }
     }};
     ($v:ident, msg:$m:expr) => {{
