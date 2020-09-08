@@ -1,43 +1,48 @@
-use digest::Digest;
+use digest::{Digest, ExtendableOutput};
 use sha1;
 
-use std::io;
+use std::io::{self, Read};
 
-use crate::{multicodec, Multicodec, Result};
+use crate::{multicodec, Error, Multicodec, Result};
 
 pub struct Multihash {
     inner: Inner,
+    digest: Option<Vec<u8>>,
 }
 
 enum Inner {
     Identity(Multicodec, Vec<u8>),
     Sha1(Multicodec, sha1::Sha1),
     Sha2(Multicodec, Sha2),
+    Sha3(Multicodec, Sha3),
 }
 
 impl From<Inner> for Multihash {
     fn from(inner: Inner) -> Multihash {
-        Multihash { inner }
+        Multihash {
+            inner,
+            digest: None,
+        }
     }
 }
 
 impl Multihash {
-    pub fn from_code(codec: Multicodec) -> Multihash {
+    pub fn from_codec(codec: Multicodec) -> Multihash {
         match codec.to_code() {
             multicodec::IDENTITY => Inner::Identity(codec, Vec::default()).into(),
             multicodec::SHA1 => Inner::Sha1(codec, sha1::Sha1::new()).into(),
-            multicodec::SHA2_256 => Inner::Sha2(codec, Sha2::new_sha256()).into(),
-            multicodec::SHA2_512 => Inner::Sha2(codec, Sha2::new_sha512()).into(),
-            //multicodec::SHA3_512 => (), // "sha3-512"
-            //multicodec::SHA3_384 => (), // "sha3-384"
-            //multicodec::SHA3_256 => (), // "sha3-256"
-            //multicodec::SHA3_224 => (), // "sha3-224"
-            //multicodec::SHAKE_128 => (), // "shake-128"
-            //multicodec::SHAKE_256 => (), // "shake-256"
-            //multicodec::KECCAK_224 => (), // "keccak-224"
-            //multicodec::KECCAK_256 => (), // "keccak-256"
-            //multicodec::KECCAK_384 => (), // "keccak-384"
-            //multicodec::KECCAK_512 => (), // "keccak-512"
+            multicodec::SHA2_256 => Inner::Sha2(codec, Sha2::new_sha2_256()).into(),
+            multicodec::SHA2_512 => Inner::Sha2(codec, Sha2::new_sha2_512()).into(),
+            multicodec::SHA3_512 => Inner::Sha3(codec, Sha3::new_sha3_512()).into(),
+            multicodec::SHA3_384 => Inner::Sha3(codec, Sha3::new_sha3_384()).into(),
+            multicodec::SHA3_256 => Inner::Sha3(codec, Sha3::new_sha3_256()).into(),
+            multicodec::SHA3_224 => Inner::Sha3(codec, Sha3::new_sha3_224()).into(),
+            multicodec::SHAKE_128 => Inner::Sha3(codec, Sha3::new_shake_128()).into(),
+            multicodec::SHAKE_256 => Inner::Sha3(codec, Sha3::new_shake_256()).into(),
+            multicodec::KECCAK_224 => Inner::Sha3(codec, Sha3::new_keccak_224()).into(),
+            multicodec::KECCAK_256 => Inner::Sha3(codec, Sha3::new_keccak_256()).into(),
+            multicodec::KECCAK_384 => Inner::Sha3(codec, Sha3::new_keccak_384()).into(),
+            multicodec::KECCAK_512 => Inner::Sha3(codec, Sha3::new_keccak_512()).into(),
             //multicodec::BLAKE3 => (), // "blake3"
             //multicodec::MURMUR3_128 => (), // "murmur3-128"
             //multicodec::MURMUR3_32 => (), // "murmur3-32"
@@ -379,31 +384,56 @@ impl Multihash {
         }
     }
 
+    pub fn from_slice(buf: &[u8]) -> Result<(Multihash, &[u8])> {
+        let (codec, rem) = Multicodec::from_slice(buf)?;
+        let (n, rem) = err_at!(Invalid, unsigned_varint::decode::usize(rem))?;
+
+        match rem.len() {
+            m if m >= n => {
+                let mut mh = Multihash::from_codec(codec);
+                mh.digest = Some(rem[..n].to_vec());
+                Ok((mh, rem))
+            }
+            _ => err_at!(Err(Error::Invalid(
+                "".to_string(),
+                "invalid hash-len".to_string()
+            ))),
+        }
+    }
+
     pub fn write(&mut self, bytes: &[u8]) {
         match &mut self.inner {
             Inner::Identity(_, buf) => buf.extend(bytes),
             Inner::Sha1(_, hasher) => hasher.update(bytes),
             Inner::Sha2(_, hasher) => hasher.write(bytes),
+            Inner::Sha3(_, hasher) => hasher.write(bytes),
         }
     }
 
     pub fn finish(&mut self) -> Result<Vec<u8>> {
-        match &mut self.inner {
+        let mut rslt = Vec::default();
+
+        let (codec, digest) = match &mut self.inner {
             Inner::Identity(codec, buf) => {
-                let mut rslt = Vec::default();
-                codec.encode_with(&mut rslt)?;
-                rslt.extend(buf.as_slice());
+                let digest = buf.as_slice().to_vec();
                 buf.truncate(0);
-                Ok(rslt)
+                (codec.clone(), digest)
             }
             Inner::Sha1(codec, hasher) => {
-                let mut rslt = Vec::default();
-                codec.encode_with(&mut rslt)?;
-                rslt.extend(hasher.finalize_reset().as_slice());
-                Ok(rslt)
+                (codec.clone(), hasher.finalize_reset().as_slice().to_vec())
             }
-            Inner::Sha2(codec, hasher) => hasher.finish(codec.clone()),
+            Inner::Sha2(codec, hasher) => (codec.clone(), hasher.finish()?),
+            Inner::Sha3(codec, hasher) => (codec.clone(), hasher.finish()?),
+        };
+
+        codec.encode_with(&mut rslt)?;
+        {
+            let mut buf: [u8; 10] = Default::default();
+            rslt.extend(unsigned_varint::encode::usize(digest.len(), &mut buf))
         }
+        rslt.extend(&digest);
+
+        Ok(rslt)
     }
 
     pub fn to_codec(&self) -> Multicodec {
@@ -411,6 +441,7 @@ impl Multihash {
             Inner::Identity(codec, _) => codec.clone(),
             Inner::Sha1(codec, _) => codec.clone(),
             Inner::Sha2(codec, _) => codec.clone(),
+            Inner::Sha3(codec, _) => codec.clone(),
         }
     }
 }
@@ -432,11 +463,11 @@ enum Sha2 {
 }
 
 impl Sha2 {
-    fn new_sha256() -> Sha2 {
+    fn new_sha2_256() -> Sha2 {
         Sha2::Algo32(sha2::Sha256::new())
     }
 
-    fn new_sha512() -> Sha2 {
+    fn new_sha2_512() -> Sha2 {
         Sha2::Algo64(sha2::Sha512::new())
     }
 
@@ -447,14 +478,108 @@ impl Sha2 {
         }
     }
 
-    fn finish(&mut self, codec: Multicodec) -> Result<Vec<u8>> {
-        let mut rslt = Vec::default();
-        codec.encode_with(&mut rslt)?;
-
-        match self {
-            Sha2::Algo32(h) => rslt.extend(h.finalize_reset().as_slice()),
-            Sha2::Algo64(h) => rslt.extend(h.finalize_reset().as_slice()),
+    fn finish(&mut self) -> Result<Vec<u8>> {
+        let digest = match self {
+            Sha2::Algo32(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha2::Algo64(h) => h.finalize_reset().as_slice().to_vec(),
         };
-        Ok(rslt)
+        Ok(digest)
+    }
+}
+
+enum Sha3 {
+    Sha3_224(sha3::Sha3_224),
+    Sha3_256(sha3::Sha3_256),
+    Sha3_384(sha3::Sha3_384),
+    Sha3_512(sha3::Sha3_512),
+    Shake128(sha3::Shake128),
+    Shake256(sha3::Shake256),
+    Keccak224(sha3::Keccak224),
+    Keccak256(sha3::Keccak256),
+    Keccak384(sha3::Keccak384),
+    Keccak512(sha3::Keccak512),
+}
+
+impl Sha3 {
+    fn new_sha3_224() -> Sha3 {
+        Sha3::Sha3_224(sha3::Sha3_224::new())
+    }
+
+    fn new_sha3_256() -> Sha3 {
+        Sha3::Sha3_256(sha3::Sha3_256::new())
+    }
+
+    fn new_sha3_384() -> Sha3 {
+        Sha3::Sha3_384(sha3::Sha3_384::new())
+    }
+
+    fn new_sha3_512() -> Sha3 {
+        Sha3::Sha3_512(sha3::Sha3_512::new())
+    }
+
+    fn new_shake_128() -> Sha3 {
+        Sha3::Shake128(sha3::Shake128::default())
+    }
+
+    fn new_shake_256() -> Sha3 {
+        Sha3::Shake256(sha3::Shake256::default())
+    }
+
+    fn new_keccak_224() -> Sha3 {
+        Sha3::Keccak224(sha3::Keccak224::new())
+    }
+
+    fn new_keccak_256() -> Sha3 {
+        Sha3::Keccak256(sha3::Keccak256::new())
+    }
+
+    fn new_keccak_384() -> Sha3 {
+        Sha3::Keccak384(sha3::Keccak384::new())
+    }
+
+    fn new_keccak_512() -> Sha3 {
+        Sha3::Keccak512(sha3::Keccak512::new())
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        match self {
+            Sha3::Sha3_224(h) => h.update(bytes),
+            Sha3::Sha3_256(h) => h.update(bytes),
+            Sha3::Sha3_384(h) => h.update(bytes),
+            Sha3::Sha3_512(h) => h.update(bytes),
+            Sha3::Shake128(h) => <sha3::Shake128 as digest::Update>::update(h, bytes),
+            Sha3::Shake256(h) => <sha3::Shake256 as digest::Update>::update(h, bytes),
+            Sha3::Keccak224(h) => h.update(bytes),
+            Sha3::Keccak256(h) => h.update(bytes),
+            Sha3::Keccak384(h) => h.update(bytes),
+            Sha3::Keccak512(h) => h.update(bytes),
+        }
+    }
+
+    fn finish(&mut self) -> Result<Vec<u8>> {
+        let digest = match self {
+            Sha3::Sha3_224(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha3::Sha3_256(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha3::Sha3_384(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha3::Sha3_512(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha3::Shake128(h) => {
+                let mut digest = Vec::default();
+                let mut xof = h.finalize_xof_reset();
+                err_at!(IOError, xof.read_to_end(&mut digest))?;
+                digest
+            }
+            Sha3::Shake256(h) => {
+                let mut digest = Vec::default();
+                let mut xof = h.finalize_xof_reset();
+                err_at!(IOError, xof.read_to_end(&mut digest))?;
+                digest
+            }
+            Sha3::Keccak224(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha3::Keccak256(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha3::Keccak384(h) => h.finalize_reset().as_slice().to_vec(),
+            Sha3::Keccak512(h) => h.finalize_reset().as_slice().to_vec(),
+        };
+
+        Ok(digest)
     }
 }
