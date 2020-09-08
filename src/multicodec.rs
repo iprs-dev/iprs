@@ -109,6 +109,10 @@ impl Multicodec {
         err_at!(IOError, buf.write(&slice))?;
         Ok(slice.len())
     }
+
+    pub fn to_code(&self) -> u128 {
+        self.code
+    }
 }
 
 /// Description of single code-point.
@@ -133,13 +137,28 @@ macro_rules! code_points {
             /// Refer [multicodec][multicodec] for details.
             ///
             /// [multicodec]: https://github.com/multiformats/multicodec
-            pub static ref TABLE: [Codepoint; 455] = [
+            pub static ref TABLE: Vec<Codepoint> = vec![
                 $(Codepoint {
                     code: $code,
                     name: $name.to_string(),
                     tag: $tag.to_string()
                 },)*
             ];
+
+            pub static ref TABLE_MULTIHASH: Vec<Codepoint> = {
+                let mut codes = Vec::default();
+                $(
+                    match $tag {
+                        "multihash" => codes.push(Codepoint {
+                            code: $code,
+                            name: $name.to_string(),
+                            tag: $tag.to_string()
+                        }),
+                        _ => ()
+                    };
+                )*
+                codes
+            };
         }
     );
 }

@@ -6,6 +6,7 @@ use std::{fmt, result};
 #[macro_use]
 mod util;
 pub mod multicodec;
+pub mod multihash;
 
 pub use multibase;
 pub use multicodec::Multicodec;
