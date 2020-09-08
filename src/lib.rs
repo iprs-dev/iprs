@@ -1,7 +1,7 @@
 //! Package implement [multiformat] specification.
 //!
 //! [multiformat]: http://multiformats.io
-use std::{fmt, result};
+use std::{error, fmt, result};
 
 #[macro_use]
 mod util;
@@ -39,3 +39,5 @@ impl fmt::Debug for Error {
         write!(f, "{}", self)
     }
 }
+
+impl error::Error for Error {}

@@ -1,3 +1,4 @@
+use blake3;
 use digest::{Digest, ExtendableOutput};
 use sha1;
 
@@ -15,6 +16,7 @@ enum Inner {
     Sha1(Multicodec, sha1::Sha1),
     Sha2(Multicodec, Sha2),
     Sha3(Multicodec, Sha3),
+    Blake3(Multicodec, blake3::Hasher),
 }
 
 impl From<Inner> for Multihash {
@@ -43,7 +45,7 @@ impl Multihash {
             multicodec::KECCAK_256 => Inner::Sha3(codec, Sha3::new_keccak_256()).into(),
             multicodec::KECCAK_384 => Inner::Sha3(codec, Sha3::new_keccak_384()).into(),
             multicodec::KECCAK_512 => Inner::Sha3(codec, Sha3::new_keccak_512()).into(),
-            //multicodec::BLAKE3 => (), // "blake3"
+            multicodec::BLAKE3 => Inner::Blake3(codec, blake3::Hasher::new()).into(),
             //multicodec::MURMUR3_128 => (), // "murmur3-128"
             //multicodec::MURMUR3_32 => (), // "murmur3-32"
             //multicodec::DBL_SHA2_256 => (), // "dbl-sha2-256"
@@ -394,20 +396,22 @@ impl Multihash {
                 mh.digest = Some(rem[..n].to_vec());
                 Ok((mh, rem))
             }
-            _ => err_at!(Err(Error::Invalid(
-                "".to_string(),
-                "invalid hash-len".to_string()
-            ))),
+            _ => err_at!(Invalid, msg: format!("invalid hash-len")),
         }
     }
 
-    pub fn write(&mut self, bytes: &[u8]) {
-        match &mut self.inner {
-            Inner::Identity(_, buf) => buf.extend(bytes),
-            Inner::Sha1(_, hasher) => hasher.update(bytes),
-            Inner::Sha2(_, hasher) => hasher.write(bytes),
-            Inner::Sha3(_, hasher) => hasher.write(bytes),
+    pub fn write(&mut self, bytes: &[u8]) -> Result<()> {
+        match (&self.digest, &mut self.inner) {
+            (Some(_), _) => err_at!(Invalid, msg: format!("finalized"))?,
+            (None, Inner::Identity(_, buf)) => buf.extend(bytes),
+            (None, Inner::Sha1(_, hasher)) => hasher.update(bytes),
+            (None, Inner::Sha2(_, hasher)) => hasher.write(bytes),
+            (None, Inner::Sha3(_, hasher)) => hasher.write(bytes),
+            (None, Inner::Blake3(_, hasher)) => {
+                hasher.update(bytes);
+            }
         }
+        Ok(())
     }
 
     pub fn finish(&mut self) -> Result<Vec<u8>> {
@@ -424,16 +428,26 @@ impl Multihash {
             }
             Inner::Sha2(codec, hasher) => (codec.clone(), hasher.finish()?),
             Inner::Sha3(codec, hasher) => (codec.clone(), hasher.finish()?),
+            Inner::Blake3(codec, hasher) => {
+                let digest = blake3::Hasher::finalize(hasher).as_bytes().to_vec();
+                hasher.reset();
+                (codec.clone(), digest)
+            }
         };
 
         codec.encode_with(&mut rslt)?;
         {
             let mut buf: [u8; 10] = Default::default();
-            rslt.extend(unsigned_varint::encode::usize(digest.len(), &mut buf))
+            rslt.extend(unsigned_varint::encode::usize(digest.len(), &mut buf));
         }
         rslt.extend(&digest);
 
+        self.digest = Some(digest);
         Ok(rslt)
+    }
+
+    pub fn reset(&mut self) {
+        self.digest.take();
     }
 
     pub fn to_codec(&self) -> Multicodec {
@@ -442,13 +456,19 @@ impl Multihash {
             Inner::Sha1(codec, _) => codec.clone(),
             Inner::Sha2(codec, _) => codec.clone(),
             Inner::Sha3(codec, _) => codec.clone(),
+            Inner::Blake3(codec, _) => codec.clone(),
         }
+    }
+
+    pub fn unwrap(self) -> (Multicodec, Vec<u8>) {
+        (self.to_codec(), self.digest.unwrap())
     }
 }
 
 impl io::Write for Multihash {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.write(buf);
+        self.write(buf)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         Ok(buf.len())
     }
 
