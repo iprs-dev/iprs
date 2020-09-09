@@ -1,3 +1,5 @@
+use blake2b_simd as blake2b;
+use blake2s_simd as blake2s;
 use blake3;
 use digest::Digest;
 use sha1;
@@ -15,6 +17,8 @@ enum Inner {
     Sha1(Multicodec, Sha1),
     Sha2(Multicodec, Sha2),
     Sha3(Multicodec, Sha3),
+    Blake2b(Multicodec, Blake2b),
+    Blake2s(Multicodec, Blake2s),
     Blake3(Multicodec, Blake3),
     Murmur3(Multicodec, Murmur3),
 }
@@ -62,6 +66,108 @@ impl Multihash {
                 let hasher = Murmur3::from_code(code, u32::default())?;
                 Inner::Murmur3(codec, hasher)
             }
+            multicodec::BLAKE2B_8
+            | multicodec::BLAKE2B_16
+            | multicodec::BLAKE2B_24
+            | multicodec::BLAKE2B_32
+            | multicodec::BLAKE2B_40
+            | multicodec::BLAKE2B_48
+            | multicodec::BLAKE2B_56
+            | multicodec::BLAKE2B_64
+            | multicodec::BLAKE2B_72
+            | multicodec::BLAKE2B_80
+            | multicodec::BLAKE2B_88
+            | multicodec::BLAKE2B_96
+            | multicodec::BLAKE2B_104
+            | multicodec::BLAKE2B_112
+            | multicodec::BLAKE2B_120
+            | multicodec::BLAKE2B_128
+            | multicodec::BLAKE2B_136
+            | multicodec::BLAKE2B_144
+            | multicodec::BLAKE2B_152
+            | multicodec::BLAKE2B_160
+            | multicodec::BLAKE2B_168
+            | multicodec::BLAKE2B_176
+            | multicodec::BLAKE2B_184
+            | multicodec::BLAKE2B_192
+            | multicodec::BLAKE2B_200
+            | multicodec::BLAKE2B_208
+            | multicodec::BLAKE2B_216
+            | multicodec::BLAKE2B_224
+            | multicodec::BLAKE2B_232
+            | multicodec::BLAKE2B_240
+            | multicodec::BLAKE2B_248
+            | multicodec::BLAKE2B_256
+            | multicodec::BLAKE2B_264
+            | multicodec::BLAKE2B_272
+            | multicodec::BLAKE2B_280
+            | multicodec::BLAKE2B_288
+            | multicodec::BLAKE2B_296
+            | multicodec::BLAKE2B_304
+            | multicodec::BLAKE2B_312
+            | multicodec::BLAKE2B_320
+            | multicodec::BLAKE2B_328
+            | multicodec::BLAKE2B_336
+            | multicodec::BLAKE2B_344
+            | multicodec::BLAKE2B_352
+            | multicodec::BLAKE2B_360
+            | multicodec::BLAKE2B_368
+            | multicodec::BLAKE2B_376
+            | multicodec::BLAKE2B_384
+            | multicodec::BLAKE2B_392
+            | multicodec::BLAKE2B_400
+            | multicodec::BLAKE2B_408
+            | multicodec::BLAKE2B_416
+            | multicodec::BLAKE2B_424
+            | multicodec::BLAKE2B_432
+            | multicodec::BLAKE2B_440
+            | multicodec::BLAKE2B_448
+            | multicodec::BLAKE2B_456
+            | multicodec::BLAKE2B_464
+            | multicodec::BLAKE2B_472
+            | multicodec::BLAKE2B_480
+            | multicodec::BLAKE2B_488
+            | multicodec::BLAKE2B_496
+            | multicodec::BLAKE2B_504
+            | multicodec::BLAKE2B_512 => {
+                let hasher = Blake2b::from_code(code)?;
+                Inner::Blake2b(codec, hasher)
+            }
+            multicodec::BLAKE2S_8
+            | multicodec::BLAKE2S_16
+            | multicodec::BLAKE2S_24
+            | multicodec::BLAKE2S_32
+            | multicodec::BLAKE2S_40
+            | multicodec::BLAKE2S_48
+            | multicodec::BLAKE2S_56
+            | multicodec::BLAKE2S_64
+            | multicodec::BLAKE2S_72
+            | multicodec::BLAKE2S_80
+            | multicodec::BLAKE2S_88
+            | multicodec::BLAKE2S_96
+            | multicodec::BLAKE2S_104
+            | multicodec::BLAKE2S_112
+            | multicodec::BLAKE2S_120
+            | multicodec::BLAKE2S_128
+            | multicodec::BLAKE2S_136
+            | multicodec::BLAKE2S_144
+            | multicodec::BLAKE2S_152
+            | multicodec::BLAKE2S_160
+            | multicodec::BLAKE2S_168
+            | multicodec::BLAKE2S_176
+            | multicodec::BLAKE2S_184
+            | multicodec::BLAKE2S_192
+            | multicodec::BLAKE2S_200
+            | multicodec::BLAKE2S_208
+            | multicodec::BLAKE2S_216
+            | multicodec::BLAKE2S_224
+            | multicodec::BLAKE2S_232
+            | multicodec::BLAKE2S_240
+            | multicodec::BLAKE2S_248
+            | multicodec::BLAKE2S_256 => {
+                let hasher = Blake2s::from_code(code)?;
+                Inner::Blake2s(codec, hasher)
+            }
             //multicodec::DBL_SHA2_256 => (), // "dbl-sha2-256"
             //multicodec::MD4 => (), // "md4"
             //multicodec::MD5 => (), // "md5"
@@ -74,102 +180,6 @@ impl Multihash {
             //multicodec::X11 => (), // "x11"
             //multicodec::KANGAROOTWELVE => (), // "kangarootwelve"
             //multicodec::SM3_256 => (), // "sm3-256"
-            //multicodec::BLAKE2B_8 => (), // "blake2b-8"
-            //multicodec::BLAKE2B_16 => (), // "blake2b-16"
-            //multicodec::BLAKE2B_24 => (), // "blake2b-24"
-            //multicodec::BLAKE2B_32 => (), // "blake2b-32"
-            //multicodec::BLAKE2B_40 => (), // "blake2b-40"
-            //multicodec::BLAKE2B_48 => (), // "blake2b-48"
-            //multicodec::BLAKE2B_56 => (), // "blake2b-56"
-            //multicodec::BLAKE2B_64 => (), // "blake2b-64"
-            //multicodec::BLAKE2B_72 => (), // "blake2b-72"
-            //multicodec::BLAKE2B_80 => (), // "blake2b-80"
-            //multicodec::BLAKE2B_88 => (), // "blake2b-88"
-            //multicodec::BLAKE2B_96 => (), // "blake2b-96"
-            //multicodec::BLAKE2B_104 => (), // "blake2b-104"
-            //multicodec::BLAKE2B_112 => (), // "blake2b-112"
-            //multicodec::BLAKE2B_120 => (), // "blake2b-120"
-            //multicodec::BLAKE2B_128 => (), // "blake2b-128"
-            //multicodec::BLAKE2B_136 => (), // "blake2b-136"
-            //multicodec::BLAKE2B_144 => (), // "blake2b-144"
-            //multicodec::BLAKE2B_152 => (), // "blake2b-152"
-            //multicodec::BLAKE2B_160 => (), // "blake2b-160"
-            //multicodec::BLAKE2B_168 => (), // "blake2b-168"
-            //multicodec::BLAKE2B_176 => (), // "blake2b-176"
-            //multicodec::BLAKE2B_184 => (), // "blake2b-184"
-            //multicodec::BLAKE2B_192 => (), // "blake2b-192"
-            //multicodec::BLAKE2B_200 => (), // "blake2b-200"
-            //multicodec::BLAKE2B_208 => (), // "blake2b-208"
-            //multicodec::BLAKE2B_216 => (), // "blake2b-216"
-            //multicodec::BLAKE2B_224 => (), // "blake2b-224"
-            //multicodec::BLAKE2B_232 => (), // "blake2b-232"
-            //multicodec::BLAKE2B_240 => (), // "blake2b-240"
-            //multicodec::BLAKE2B_248 => (), // "blake2b-248"
-            //multicodec::BLAKE2B_256 => (), // "blake2b-256"
-            //multicodec::BLAKE2B_264 => (), // "blake2b-264"
-            //multicodec::BLAKE2B_272 => (), // "blake2b-272"
-            //multicodec::BLAKE2B_280 => (), // "blake2b-280"
-            //multicodec::BLAKE2B_288 => (), // "blake2b-288"
-            //multicodec::BLAKE2B_296 => (), // "blake2b-296"
-            //multicodec::BLAKE2B_304 => (), // "blake2b-304"
-            //multicodec::BLAKE2B_312 => (), // "blake2b-312"
-            //multicodec::BLAKE2B_320 => (), // "blake2b-320"
-            //multicodec::BLAKE2B_328 => (), // "blake2b-328"
-            //multicodec::BLAKE2B_336 => (), // "blake2b-336"
-            //multicodec::BLAKE2B_344 => (), // "blake2b-344"
-            //multicodec::BLAKE2B_352 => (), // "blake2b-352"
-            //multicodec::BLAKE2B_360 => (), // "blake2b-360"
-            //multicodec::BLAKE2B_368 => (), // "blake2b-368"
-            //multicodec::BLAKE2B_376 => (), // "blake2b-376"
-            //multicodec::BLAKE2B_384 => (), // "blake2b-384"
-            //multicodec::BLAKE2B_392 => (), // "blake2b-392"
-            //multicodec::BLAKE2B_400 => (), // "blake2b-400"
-            //multicodec::BLAKE2B_408 => (), // "blake2b-408"
-            //multicodec::BLAKE2B_416 => (), // "blake2b-416"
-            //multicodec::BLAKE2B_424 => (), // "blake2b-424"
-            //multicodec::BLAKE2B_432 => (), // "blake2b-432"
-            //multicodec::BLAKE2B_440 => (), // "blake2b-440"
-            //multicodec::BLAKE2B_448 => (), // "blake2b-448"
-            //multicodec::BLAKE2B_456 => (), // "blake2b-456"
-            //multicodec::BLAKE2B_464 => (), // "blake2b-464"
-            //multicodec::BLAKE2B_472 => (), // "blake2b-472"
-            //multicodec::BLAKE2B_480 => (), // "blake2b-480"
-            //multicodec::BLAKE2B_488 => (), // "blake2b-488"
-            //multicodec::BLAKE2B_496 => (), // "blake2b-496"
-            //multicodec::BLAKE2B_504 => (), // "blake2b-504"
-            //multicodec::BLAKE2B_512 => (), // "blake2b-512"
-            //multicodec::BLAKE2S_8 => (), // "blake2s-8"
-            //multicodec::BLAKE2S_16 => (), // "blake2s-16"
-            //multicodec::BLAKE2S_24 => (), // "blake2s-24"
-            //multicodec::BLAKE2S_32 => (), // "blake2s-32"
-            //multicodec::BLAKE2S_40 => (), // "blake2s-40"
-            //multicodec::BLAKE2S_48 => (), // "blake2s-48"
-            //multicodec::BLAKE2S_56 => (), // "blake2s-56"
-            //multicodec::BLAKE2S_64 => (), // "blake2s-64"
-            //multicodec::BLAKE2S_72 => (), // "blake2s-72"
-            //multicodec::BLAKE2S_80 => (), // "blake2s-80"
-            //multicodec::BLAKE2S_88 => (), // "blake2s-88"
-            //multicodec::BLAKE2S_96 => (), // "blake2s-96"
-            //multicodec::BLAKE2S_104 => (), // "blake2s-104"
-            //multicodec::BLAKE2S_112 => (), // "blake2s-112"
-            //multicodec::BLAKE2S_120 => (), // "blake2s-120"
-            //multicodec::BLAKE2S_128 => (), // "blake2s-128"
-            //multicodec::BLAKE2S_136 => (), // "blake2s-136"
-            //multicodec::BLAKE2S_144 => (), // "blake2s-144"
-            //multicodec::BLAKE2S_152 => (), // "blake2s-152"
-            //multicodec::BLAKE2S_160 => (), // "blake2s-160"
-            //multicodec::BLAKE2S_168 => (), // "blake2s-168"
-            //multicodec::BLAKE2S_176 => (), // "blake2s-176"
-            //multicodec::BLAKE2S_184 => (), // "blake2s-184"
-            //multicodec::BLAKE2S_192 => (), // "blake2s-192"
-            //multicodec::BLAKE2S_200 => (), // "blake2s-200"
-            //multicodec::BLAKE2S_208 => (), // "blake2s-208"
-            //multicodec::BLAKE2S_216 => (), // "blake2s-216"
-            //multicodec::BLAKE2S_224 => (), // "blake2s-224"
-            //multicodec::BLAKE2S_232 => (), // "blake2s-232"
-            //multicodec::BLAKE2S_240 => (), // "blake2s-240"
-            //multicodec::BLAKE2S_248 => (), // "blake2s-248"
-            //multicodec::BLAKE2S_256 => (), // "blake2s-256"
             //multicodec::SKEIN256_8 => (), // "skein256-8"
             //multicodec::SKEIN256_16 => (), // "skein256-16"
             //multicodec::SKEIN256_24 => (), // "skein256-24"
@@ -450,6 +460,108 @@ impl Multihash {
                 let hasher = Murmur3::from_slice(code, digest)?;
                 Inner::Murmur3(codec, hasher)
             }
+            multicodec::BLAKE2B_8
+            | multicodec::BLAKE2B_16
+            | multicodec::BLAKE2B_24
+            | multicodec::BLAKE2B_32
+            | multicodec::BLAKE2B_40
+            | multicodec::BLAKE2B_48
+            | multicodec::BLAKE2B_56
+            | multicodec::BLAKE2B_64
+            | multicodec::BLAKE2B_72
+            | multicodec::BLAKE2B_80
+            | multicodec::BLAKE2B_88
+            | multicodec::BLAKE2B_96
+            | multicodec::BLAKE2B_104
+            | multicodec::BLAKE2B_112
+            | multicodec::BLAKE2B_120
+            | multicodec::BLAKE2B_128
+            | multicodec::BLAKE2B_136
+            | multicodec::BLAKE2B_144
+            | multicodec::BLAKE2B_152
+            | multicodec::BLAKE2B_160
+            | multicodec::BLAKE2B_168
+            | multicodec::BLAKE2B_176
+            | multicodec::BLAKE2B_184
+            | multicodec::BLAKE2B_192
+            | multicodec::BLAKE2B_200
+            | multicodec::BLAKE2B_208
+            | multicodec::BLAKE2B_216
+            | multicodec::BLAKE2B_224
+            | multicodec::BLAKE2B_232
+            | multicodec::BLAKE2B_240
+            | multicodec::BLAKE2B_248
+            | multicodec::BLAKE2B_256
+            | multicodec::BLAKE2B_264
+            | multicodec::BLAKE2B_272
+            | multicodec::BLAKE2B_280
+            | multicodec::BLAKE2B_288
+            | multicodec::BLAKE2B_296
+            | multicodec::BLAKE2B_304
+            | multicodec::BLAKE2B_312
+            | multicodec::BLAKE2B_320
+            | multicodec::BLAKE2B_328
+            | multicodec::BLAKE2B_336
+            | multicodec::BLAKE2B_344
+            | multicodec::BLAKE2B_352
+            | multicodec::BLAKE2B_360
+            | multicodec::BLAKE2B_368
+            | multicodec::BLAKE2B_376
+            | multicodec::BLAKE2B_384
+            | multicodec::BLAKE2B_392
+            | multicodec::BLAKE2B_400
+            | multicodec::BLAKE2B_408
+            | multicodec::BLAKE2B_416
+            | multicodec::BLAKE2B_424
+            | multicodec::BLAKE2B_432
+            | multicodec::BLAKE2B_440
+            | multicodec::BLAKE2B_448
+            | multicodec::BLAKE2B_456
+            | multicodec::BLAKE2B_464
+            | multicodec::BLAKE2B_472
+            | multicodec::BLAKE2B_480
+            | multicodec::BLAKE2B_488
+            | multicodec::BLAKE2B_496
+            | multicodec::BLAKE2B_504
+            | multicodec::BLAKE2B_512 => {
+                let hasher = Blake2b::from_slice(code, digest)?;
+                Inner::Blake2b(codec, hasher)
+            }
+            multicodec::BLAKE2S_8
+            | multicodec::BLAKE2S_16
+            | multicodec::BLAKE2S_24
+            | multicodec::BLAKE2S_32
+            | multicodec::BLAKE2S_40
+            | multicodec::BLAKE2S_48
+            | multicodec::BLAKE2S_56
+            | multicodec::BLAKE2S_64
+            | multicodec::BLAKE2S_72
+            | multicodec::BLAKE2S_80
+            | multicodec::BLAKE2S_88
+            | multicodec::BLAKE2S_96
+            | multicodec::BLAKE2S_104
+            | multicodec::BLAKE2S_112
+            | multicodec::BLAKE2S_120
+            | multicodec::BLAKE2S_128
+            | multicodec::BLAKE2S_136
+            | multicodec::BLAKE2S_144
+            | multicodec::BLAKE2S_152
+            | multicodec::BLAKE2S_160
+            | multicodec::BLAKE2S_168
+            | multicodec::BLAKE2S_176
+            | multicodec::BLAKE2S_184
+            | multicodec::BLAKE2S_192
+            | multicodec::BLAKE2S_200
+            | multicodec::BLAKE2S_208
+            | multicodec::BLAKE2S_216
+            | multicodec::BLAKE2S_224
+            | multicodec::BLAKE2S_232
+            | multicodec::BLAKE2S_240
+            | multicodec::BLAKE2S_248
+            | multicodec::BLAKE2S_256 => {
+                let hasher = Blake2s::from_slice(code, digest)?;
+                Inner::Blake2s(codec, hasher)
+            }
             codec => err_at!(NotImplemented, msg: format!("codec {}", codec))?,
         };
 
@@ -471,6 +583,8 @@ impl Multihash {
             Inner::Sha3(_, hasher) => hasher.write(bytes)?,
             Inner::Blake3(_, hasher) => hasher.write(bytes)?,
             Inner::Murmur3(_, hasher) => hasher.write(bytes)?,
+            Inner::Blake2b(_, hasher) => hasher.write(bytes)?,
+            Inner::Blake2s(_, hasher) => hasher.write(bytes)?,
         };
         Ok(self)
     }
@@ -483,6 +597,8 @@ impl Multihash {
             Inner::Sha3(_, hasher) => hasher.finish()?,
             Inner::Blake3(_, hasher) => hasher.finish()?,
             Inner::Murmur3(_, hasher) => hasher.finish()?,
+            Inner::Blake2b(_, hasher) => hasher.finish()?,
+            Inner::Blake2s(_, hasher) => hasher.finish()?,
         };
         Ok(self)
     }
@@ -495,6 +611,8 @@ impl Multihash {
             Inner::Sha3(_, hasher) => hasher.reset()?,
             Inner::Blake3(_, hasher) => hasher.reset()?,
             Inner::Murmur3(_, hasher) => hasher.reset()?,
+            Inner::Blake2b(_, hasher) => hasher.reset()?,
+            Inner::Blake2s(_, hasher) => hasher.reset()?,
         };
         Ok(self)
     }
@@ -518,6 +636,8 @@ impl Multihash {
             Inner::Sha3(_, hasher) => hasher.as_digest()?,
             Inner::Blake3(_, hasher) => hasher.as_digest()?,
             Inner::Murmur3(_, hasher) => hasher.as_digest()?,
+            Inner::Blake2b(_, hasher) => hasher.as_digest()?,
+            Inner::Blake2s(_, hasher) => hasher.as_digest()?,
         };
         let n = self.to_codec().encode_with(buf)?;
         let m = {
@@ -538,6 +658,8 @@ impl Multihash {
             Inner::Sha3(codec, _) => codec.clone(),
             Inner::Blake3(codec, _) => codec.clone(),
             Inner::Murmur3(codec, _) => codec.clone(),
+            Inner::Blake2b(codec, _) => codec.clone(),
+            Inner::Blake2s(codec, _) => codec.clone(),
         }
     }
 
@@ -549,6 +671,8 @@ impl Multihash {
             Inner::Sha3(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Blake3(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Murmur3(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Blake2b(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Blake2s(_, hasher) => hasher.as_digest().unwrap(),
         };
         (self.to_codec(), digest.to_vec())
     }
@@ -1301,6 +1425,250 @@ impl Murmur3 {
                 ..
             } => Ok(digest),
             _ => err_at!(Invalid, msg: format!("no digest"))?,
+        }
+    }
+}
+
+struct Blake2b {
+    code: u128,
+    hasher: blake2b::State,
+    digest: Option<Vec<u8>>,
+}
+
+impl Blake2b {
+    fn to_digest_bits(code: u128) -> Result<usize> {
+        let len = match code {
+            multicodec::BLAKE2B_8 => 8,
+            multicodec::BLAKE2B_16 => 16,
+            multicodec::BLAKE2B_24 => 24,
+            multicodec::BLAKE2B_32 => 32,
+            multicodec::BLAKE2B_40 => 40,
+            multicodec::BLAKE2B_48 => 48,
+            multicodec::BLAKE2B_56 => 56,
+            multicodec::BLAKE2B_64 => 64,
+            multicodec::BLAKE2B_72 => 72,
+            multicodec::BLAKE2B_80 => 80,
+            multicodec::BLAKE2B_88 => 88,
+            multicodec::BLAKE2B_96 => 96,
+            multicodec::BLAKE2B_104 => 104,
+            multicodec::BLAKE2B_112 => 112,
+            multicodec::BLAKE2B_120 => 120,
+            multicodec::BLAKE2B_128 => 128,
+            multicodec::BLAKE2B_136 => 136,
+            multicodec::BLAKE2B_144 => 144,
+            multicodec::BLAKE2B_152 => 152,
+            multicodec::BLAKE2B_160 => 160,
+            multicodec::BLAKE2B_168 => 168,
+            multicodec::BLAKE2B_176 => 176,
+            multicodec::BLAKE2B_184 => 184,
+            multicodec::BLAKE2B_192 => 192,
+            multicodec::BLAKE2B_200 => 200,
+            multicodec::BLAKE2B_208 => 208,
+            multicodec::BLAKE2B_216 => 216,
+            multicodec::BLAKE2B_224 => 224,
+            multicodec::BLAKE2B_232 => 232,
+            multicodec::BLAKE2B_240 => 240,
+            multicodec::BLAKE2B_248 => 248,
+            multicodec::BLAKE2B_256 => 256,
+            multicodec::BLAKE2B_264 => 264,
+            multicodec::BLAKE2B_272 => 272,
+            multicodec::BLAKE2B_280 => 280,
+            multicodec::BLAKE2B_288 => 288,
+            multicodec::BLAKE2B_296 => 296,
+            multicodec::BLAKE2B_304 => 304,
+            multicodec::BLAKE2B_312 => 312,
+            multicodec::BLAKE2B_320 => 320,
+            multicodec::BLAKE2B_328 => 328,
+            multicodec::BLAKE2B_336 => 336,
+            multicodec::BLAKE2B_344 => 344,
+            multicodec::BLAKE2B_352 => 352,
+            multicodec::BLAKE2B_360 => 360,
+            multicodec::BLAKE2B_368 => 368,
+            multicodec::BLAKE2B_376 => 376,
+            multicodec::BLAKE2B_384 => 384,
+            multicodec::BLAKE2B_392 => 392,
+            multicodec::BLAKE2B_400 => 400,
+            multicodec::BLAKE2B_408 => 408,
+            multicodec::BLAKE2B_416 => 416,
+            multicodec::BLAKE2B_424 => 424,
+            multicodec::BLAKE2B_432 => 432,
+            multicodec::BLAKE2B_440 => 440,
+            multicodec::BLAKE2B_448 => 448,
+            multicodec::BLAKE2B_456 => 456,
+            multicodec::BLAKE2B_464 => 464,
+            multicodec::BLAKE2B_472 => 472,
+            multicodec::BLAKE2B_480 => 480,
+            multicodec::BLAKE2B_488 => 488,
+            multicodec::BLAKE2B_496 => 496,
+            multicodec::BLAKE2B_504 => 504,
+            multicodec::BLAKE2B_512 => 512,
+            _ => err_at!(Fatal, msg: format!("unreachable"))?,
+        };
+        Ok(len)
+    }
+
+    fn from_code(code: u128) -> Result<Blake2b> {
+        use blake2b_simd::Params;
+
+        let mut hasher = Params::new();
+        hasher.hash_length(Self::to_digest_bits(code)?);
+        Ok(Blake2b {
+            code,
+            hasher: hasher.to_state(),
+            digest: None,
+        })
+    }
+
+    fn from_slice(code: u128, digest: &[u8]) -> Result<Blake2b> {
+        use blake2b_simd::Params;
+
+        let mut hasher = Params::new();
+        hasher.hash_length(Self::to_digest_bits(code)?);
+        Ok(Blake2b {
+            code,
+            hasher: hasher.to_state(),
+            digest: Some(digest.to_vec()),
+        })
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> Result<()> {
+        match &self.digest {
+            None => self.hasher.update(bytes),
+            Some(_) => err_at!(Invalid, msg: format!("finalized"))?,
+        };
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.digest = match &self.digest {
+            None => Some(self.hasher.finalize().as_bytes().to_vec()),
+            Some(_) => err_at!(Invalid, msg: format!("double finalize"))?,
+        };
+        Ok(())
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        use blake2b_simd::Params;
+
+        self.hasher = {
+            let mut hasher = Params::new();
+            hasher.hash_length(Self::to_digest_bits(self.code)?);
+            hasher.to_state()
+        };
+        self.digest.take();
+        Ok(())
+    }
+
+    fn as_digest(&self) -> Result<&[u8]> {
+        match &self.digest {
+            Some(digest) => Ok(digest),
+            None => err_at!(Invalid, msg: format!("no digest")),
+        }
+    }
+}
+
+struct Blake2s {
+    code: u128,
+    hasher: blake2s::State,
+    digest: Option<Vec<u8>>,
+}
+
+impl Blake2s {
+    fn to_digest_bits(code: u128) -> Result<usize> {
+        let len = match code {
+            multicodec::BLAKE2S_8 => 8,
+            multicodec::BLAKE2S_16 => 16,
+            multicodec::BLAKE2S_24 => 24,
+            multicodec::BLAKE2S_32 => 32,
+            multicodec::BLAKE2S_40 => 40,
+            multicodec::BLAKE2S_48 => 48,
+            multicodec::BLAKE2S_56 => 56,
+            multicodec::BLAKE2S_64 => 64,
+            multicodec::BLAKE2S_72 => 72,
+            multicodec::BLAKE2S_80 => 80,
+            multicodec::BLAKE2S_88 => 88,
+            multicodec::BLAKE2S_96 => 96,
+            multicodec::BLAKE2S_104 => 104,
+            multicodec::BLAKE2S_112 => 112,
+            multicodec::BLAKE2S_120 => 120,
+            multicodec::BLAKE2S_128 => 128,
+            multicodec::BLAKE2S_136 => 136,
+            multicodec::BLAKE2S_144 => 144,
+            multicodec::BLAKE2S_152 => 152,
+            multicodec::BLAKE2S_160 => 160,
+            multicodec::BLAKE2S_168 => 168,
+            multicodec::BLAKE2S_176 => 176,
+            multicodec::BLAKE2S_184 => 184,
+            multicodec::BLAKE2S_192 => 192,
+            multicodec::BLAKE2S_200 => 200,
+            multicodec::BLAKE2S_208 => 208,
+            multicodec::BLAKE2S_216 => 216,
+            multicodec::BLAKE2S_224 => 224,
+            multicodec::BLAKE2S_232 => 232,
+            multicodec::BLAKE2S_240 => 240,
+            multicodec::BLAKE2S_248 => 248,
+            multicodec::BLAKE2S_256 => 256,
+            _ => err_at!(Fatal, msg: format!("unreachable"))?,
+        };
+        Ok(len)
+    }
+
+    fn from_code(code: u128) -> Result<Blake2s> {
+        use blake2s_simd::Params;
+
+        let mut hasher = Params::new();
+        hasher.hash_length(Self::to_digest_bits(code)?);
+        Ok(Blake2s {
+            code,
+            hasher: hasher.to_state(),
+            digest: None,
+        })
+    }
+
+    fn from_slice(code: u128, digest: &[u8]) -> Result<Blake2s> {
+        use blake2s_simd::Params;
+
+        let mut hasher = Params::new();
+        hasher.hash_length(Self::to_digest_bits(code)?);
+        Ok(Blake2s {
+            code,
+            hasher: hasher.to_state(),
+            digest: Some(digest.to_vec()),
+        })
+    }
+
+    fn write(&mut self, bytes: &[u8]) -> Result<()> {
+        match &self.digest {
+            None => self.hasher.update(bytes),
+            Some(_) => err_at!(Invalid, msg: format!("finalized"))?,
+        };
+        Ok(())
+    }
+
+    fn finish(&mut self) -> Result<()> {
+        self.digest = match &self.digest {
+            None => Some(self.hasher.finalize().as_bytes().to_vec()),
+            Some(_) => err_at!(Invalid, msg: format!("double finalize"))?,
+        };
+        Ok(())
+    }
+
+    fn reset(&mut self) -> Result<()> {
+        use blake2s_simd::Params;
+
+        self.hasher = {
+            let mut hasher = Params::new();
+            hasher.hash_length(Self::to_digest_bits(self.code)?);
+            hasher.to_state()
+        };
+        self.digest.take();
+        Ok(())
+    }
+
+    fn as_digest(&self) -> Result<&[u8]> {
+        match &self.digest {
+            Some(digest) => Ok(digest),
+            None => err_at!(Invalid, msg: format!("no digest")),
         }
     }
 }
