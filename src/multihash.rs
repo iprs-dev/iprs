@@ -1,5 +1,5 @@
 use blake3;
-use digest::{Digest, ExtendableOutput};
+use digest::Digest;
 use sha1;
 
 use std::io::{self, Read};
@@ -17,6 +17,7 @@ enum Inner {
     Sha2(Multicodec, Sha2),
     Sha3(Multicodec, Sha3),
     Blake3(Multicodec, blake3::Hasher),
+    Murmur3(Multicodec, Murmur3),
 }
 
 impl From<Inner> for Multihash {
@@ -30,24 +31,30 @@ impl From<Inner> for Multihash {
 
 impl Multihash {
     pub fn from_codec(codec: Multicodec) -> Multihash {
-        match codec.to_code() {
-            multicodec::IDENTITY => Inner::Identity(codec, Vec::default()).into(),
-            multicodec::SHA1 => Inner::Sha1(codec, sha1::Sha1::new()).into(),
-            multicodec::SHA2_256 => Inner::Sha2(codec, Sha2::new_sha2_256()).into(),
-            multicodec::SHA2_512 => Inner::Sha2(codec, Sha2::new_sha2_512()).into(),
-            multicodec::SHA3_512 => Inner::Sha3(codec, Sha3::new_sha3_512()).into(),
-            multicodec::SHA3_384 => Inner::Sha3(codec, Sha3::new_sha3_384()).into(),
-            multicodec::SHA3_256 => Inner::Sha3(codec, Sha3::new_sha3_256()).into(),
-            multicodec::SHA3_224 => Inner::Sha3(codec, Sha3::new_sha3_224()).into(),
-            multicodec::SHAKE_128 => Inner::Sha3(codec, Sha3::new_shake_128()).into(),
-            multicodec::SHAKE_256 => Inner::Sha3(codec, Sha3::new_shake_256()).into(),
-            multicodec::KECCAK_224 => Inner::Sha3(codec, Sha3::new_keccak_224()).into(),
-            multicodec::KECCAK_256 => Inner::Sha3(codec, Sha3::new_keccak_256()).into(),
-            multicodec::KECCAK_384 => Inner::Sha3(codec, Sha3::new_keccak_384()).into(),
-            multicodec::KECCAK_512 => Inner::Sha3(codec, Sha3::new_keccak_512()).into(),
-            multicodec::BLAKE3 => Inner::Blake3(codec, blake3::Hasher::new()).into(),
-            //multicodec::MURMUR3_128 => (), // "murmur3-128"
-            //multicodec::MURMUR3_32 => (), // "murmur3-32"
+        let inner = match codec.to_code() {
+            multicodec::IDENTITY => Inner::Identity(codec, Vec::default()),
+            multicodec::SHA1 => Inner::Sha1(codec, sha1::Sha1::new()),
+            multicodec::SHA2_256 => Inner::Sha2(codec, Sha2::new_sha2_256()),
+            multicodec::SHA2_512 => Inner::Sha2(codec, Sha2::new_sha2_512()),
+            multicodec::SHA3_512 => Inner::Sha3(codec, Sha3::new_sha3_512()),
+            multicodec::SHA3_384 => Inner::Sha3(codec, Sha3::new_sha3_384()),
+            multicodec::SHA3_256 => Inner::Sha3(codec, Sha3::new_sha3_256()),
+            multicodec::SHA3_224 => Inner::Sha3(codec, Sha3::new_sha3_224()),
+            multicodec::SHAKE_128 => Inner::Sha3(codec, Sha3::new_shake_128()),
+            multicodec::SHAKE_256 => Inner::Sha3(codec, Sha3::new_shake_256()),
+            multicodec::KECCAK_224 => Inner::Sha3(codec, Sha3::new_keccak_224()),
+            multicodec::KECCAK_256 => Inner::Sha3(codec, Sha3::new_keccak_256()),
+            multicodec::KECCAK_384 => Inner::Sha3(codec, Sha3::new_keccak_384()),
+            multicodec::KECCAK_512 => Inner::Sha3(codec, Sha3::new_keccak_512()),
+            multicodec::BLAKE3 => Inner::Blake3(codec, blake3::Hasher::new()),
+            multicodec::MURMUR3_32 => {
+                let hasher = Murmur3::new_murmur3_32(u32::default());
+                Inner::Murmur3(codec, hasher)
+            }
+            multicodec::MURMUR3_128 => {
+                let hasher = Murmur3::new_murmur3_128(u32::default());
+                Inner::Murmur3(codec, hasher)
+            }
             //multicodec::DBL_SHA2_256 => (), // "dbl-sha2-256"
             //multicodec::MD4 => (), // "md4"
             //multicodec::MD5 => (), // "md5"
@@ -383,26 +390,50 @@ impl Multihash {
             //multicodec::POSEIDON_BLS12_381_A2_FC1 => (),
             //multicodec::POSEIDON_BLS12_381_A2_FC1_SC => (),
             _ => unreachable!(),
-        }
+        };
+        inner.into()
     }
 
     pub fn from_slice(buf: &[u8]) -> Result<(Multihash, &[u8])> {
+        use unsigned_varint::decode;
+
+        // <hash-func-type><digest-length><digest-value>
         let (codec, rem) = Multicodec::from_slice(buf)?;
-        let (n, rem) = err_at!(Invalid, unsigned_varint::decode::usize(rem))?;
+        // <digest-length><digest-value>
+        let (n, rem) = err_at!(Invalid, decode::usize(rem))?;
+        let (murmur3_seed, n, rem) = match codec.to_code() {
+            multicodec::MURMUR3_32 | multicodec::MURMUR3_128 => {
+                let (seed, new_rem) = err_at!(Invalid, decode::u32(rem))?;
+                let m = rem.len() - new_rem.len();
+                (Some(seed), n - m, rem)
+            }
+            _ => (None, n, rem),
+        };
+        // <digest-value>
+        let digest = &rem[..n];
 
         match rem.len() {
             m if m >= n => {
                 let mut mh = Multihash::from_codec(codec);
-                mh.digest = Some(rem[..n].to_vec());
+
+                mh.digest = Some(digest.to_vec());
+                murmur3_seed.map(|seed| mh.set_murmur3_seed(seed));
+
                 Ok((mh, rem))
             }
             _ => err_at!(Invalid, msg: format!("invalid hash-len")),
         }
     }
 
+    pub fn set_murmur3_seed(&mut self, seed: u32) {
+        match &mut self.inner {
+            Inner::Murmur3(_, hasher) => hasher.set_seed(seed),
+            _ => (),
+        }
+    }
+
     pub fn write(&mut self, bytes: &[u8]) -> Result<()> {
         match (&self.digest, &mut self.inner) {
-            (Some(_), _) => err_at!(Invalid, msg: format!("finalized"))?,
             (None, Inner::Identity(_, buf)) => buf.extend(bytes),
             (None, Inner::Sha1(_, hasher)) => hasher.update(bytes),
             (None, Inner::Sha2(_, hasher)) => hasher.write(bytes),
@@ -410,11 +441,15 @@ impl Multihash {
             (None, Inner::Blake3(_, hasher)) => {
                 hasher.update(bytes);
             }
+            (None, Inner::Murmur3(_, hasher)) => hasher.write(bytes),
+            (Some(_), _) => err_at!(Invalid, msg: format!("finalized"))?,
         }
         Ok(())
     }
 
     pub fn finish(&mut self) -> Result<Vec<u8>> {
+        use unsigned_varint::encode;
+
         let mut rslt = Vec::default();
 
         let (codec, digest) = match &mut self.inner {
@@ -433,12 +468,13 @@ impl Multihash {
                 hasher.reset();
                 (codec.clone(), digest)
             }
+            Inner::Murmur3(codec, hasher) => (codec.clone(), hasher.finish()?),
         };
 
         codec.encode_with(&mut rslt)?;
         {
             let mut buf: [u8; 10] = Default::default();
-            rslt.extend(unsigned_varint::encode::usize(digest.len(), &mut buf));
+            rslt.extend(encode::usize(digest.len(), &mut buf));
         }
         rslt.extend(&digest);
 
@@ -457,6 +493,7 @@ impl Multihash {
             Inner::Sha2(codec, _) => codec.clone(),
             Inner::Sha3(codec, _) => codec.clone(),
             Inner::Blake3(codec, _) => codec.clone(),
+            Inner::Murmur3(codec, _) => codec.clone(),
         }
     }
 
@@ -563,20 +600,22 @@ impl Sha3 {
 
     fn write(&mut self, bytes: &[u8]) {
         match self {
-            Sha3::Sha3_224(h) => h.update(bytes),
-            Sha3::Sha3_256(h) => h.update(bytes),
-            Sha3::Sha3_384(h) => h.update(bytes),
-            Sha3::Sha3_512(h) => h.update(bytes),
+            Sha3::Sha3_224(h) => <sha3::Sha3_224 as digest::Digest>::update(h, bytes),
+            Sha3::Sha3_256(h) => <sha3::Sha3_256 as digest::Digest>::update(h, bytes),
+            Sha3::Sha3_384(h) => <sha3::Sha3_384 as digest::Digest>::update(h, bytes),
+            Sha3::Sha3_512(h) => <sha3::Sha3_512 as digest::Digest>::update(h, bytes),
             Sha3::Shake128(h) => <sha3::Shake128 as digest::Update>::update(h, bytes),
             Sha3::Shake256(h) => <sha3::Shake256 as digest::Update>::update(h, bytes),
-            Sha3::Keccak224(h) => h.update(bytes),
-            Sha3::Keccak256(h) => h.update(bytes),
-            Sha3::Keccak384(h) => h.update(bytes),
-            Sha3::Keccak512(h) => h.update(bytes),
+            Sha3::Keccak224(h) => <sha3::Keccak224 as digest::Digest>::update(h, bytes),
+            Sha3::Keccak256(h) => <sha3::Keccak256 as digest::Digest>::update(h, bytes),
+            Sha3::Keccak384(h) => <sha3::Keccak384 as digest::Digest>::update(h, bytes),
+            Sha3::Keccak512(h) => <sha3::Keccak512 as digest::Digest>::update(h, bytes),
         }
     }
 
     fn finish(&mut self) -> Result<Vec<u8>> {
+        use digest::ExtendableOutput;
+
         let digest = match self {
             Sha3::Sha3_224(h) => h.finalize_reset().as_slice().to_vec(),
             Sha3::Sha3_256(h) => h.finalize_reset().as_slice().to_vec(),
@@ -601,5 +640,55 @@ impl Sha3 {
         };
 
         Ok(digest)
+    }
+}
+
+enum Murmur3 {
+    Algo32(u32, Vec<u8>),
+    Algo128(u32, Vec<u8>),
+}
+
+impl Murmur3 {
+    fn new_murmur3_32(seed: u32) -> Murmur3 {
+        Murmur3::Algo32(seed, Vec::default())
+    }
+
+    fn new_murmur3_128(seed: u32) -> Murmur3 {
+        Murmur3::Algo128(seed, Vec::default())
+    }
+
+    fn set_seed(&mut self, new_seed: u32) {
+        match self {
+            Murmur3::Algo32(seed, _) => *seed = new_seed,
+            Murmur3::Algo128(seed, _) => *seed = new_seed,
+        }
+    }
+
+    fn write(&mut self, bytes: &[u8]) {
+        match self {
+            Murmur3::Algo32(_, buf) => buf.extend(bytes),
+            Murmur3::Algo128(_, buf) => buf.extend(bytes),
+        }
+    }
+
+    fn finish(&mut self) -> Result<Vec<u8>> {
+        match self {
+            Murmur3::Algo32(seed, buf) => {
+                let mut r = io::Cursor::new(buf.as_slice());
+                let rslt = murmur3::murmur3_32(&mut r, *seed);
+                buf.truncate(0);
+                Ok(err_at!(Invalid, rslt)?.to_be_bytes().to_vec())
+            }
+            Murmur3::Algo128(seed, buf) => {
+                let mut r = io::Cursor::new(buf.as_slice());
+                let rslt = if cfg!(target_arch = "x86_64") {
+                    murmur3::murmur3_x64_128(&mut r, *seed)
+                } else {
+                    murmur3::murmur3_x86_128(&mut r, *seed)
+                };
+                buf.truncate(0);
+                Ok(err_at!(Invalid, rslt)?.to_be_bytes().to_vec())
+            }
+        }
     }
 }
