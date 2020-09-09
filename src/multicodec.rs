@@ -26,7 +26,13 @@ pub struct Multicodec {
 
 impl fmt::Debug for Multicodec {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
-        write!(f, "Multicodec<{}", self.code)
+        write!(f, "Multicodec<{}>", self.code)
+    }
+}
+
+impl fmt::Display for Multicodec {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        write!(f, "{}", self.code)
     }
 }
 
@@ -75,7 +81,7 @@ impl<'a> TryFrom<&'a str> for Multicodec {
                 return Ok(Multicodec { code: entry.code });
             }
         }
-        err_at!(Err(Error::Invalid(
+        err_at!(Err(Error::BadCodec(
             "".to_string(),
             format!("multicode-name {}", name)
         )))
