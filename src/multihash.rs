@@ -81,14 +81,13 @@ impl Multihash {
                 let hasher = RipeMd::from_code(code)?;
                 Inner::RipeMd(codec, hasher)
             }
-            //multicodec::KANGAROOTWELVE => (), // "kangarootwelve"
-            //multicodec::SM3_256 => (), // "sm3-256"
-            //multicodec::POSEIDON_BLS12_381_A2_FC1 => (),
-            //multicodec::POSEIDON_BLS12_381_A2_FC1_SC => (),
-
-            //multicodec::X11 => (), // "x11"
-            //multicodec::BMT => (), // "bmt"
-            //multicodec::SHA2_256_TRUNC254_PADDED,
+            // multicodec::SM3_256 => unimplemented!(),
+            // multicodec::POSEIDON_BLS12_381_A2_FC1 => unimplemented!(),
+            // multicodec::POSEIDON_BLS12_381_A2_FC1_SC => unimplemented!(),
+            // multicodec::KANGAROOTWELVE => unimplemented!(),
+            // multicodec::X11 => unimplemented!(),
+            // multicodec::BMT => unimplemented!(),
+            // multicodec::SHA2_256_TRUNC254_PADDED => unimplemented!(),
             codec => err_at!(NotImplemented, msg: format!("codec {}", codec))?,
         };
         Ok(inner.into())
