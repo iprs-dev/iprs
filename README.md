@@ -1,3 +1,5 @@
+[![Documentation](https://docs.rs/multiformats/badge.svg?style=flat-square)](https://docs.rs/multiformats)
+
 A collection of protocols which aim to future-proof systems, today.
 They do this mainly by enhancing format values with self-description.
 This allows interoperability, protocol agility, and helps us avoid
