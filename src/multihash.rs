@@ -1,6 +1,9 @@
-//! NOTE:
-//! 1. For Shake128 and Shake256 algorithm variable output length
-//!    `d` must be included as part of the spec and API.
+//! Module adapts several hashing algorithms into multiformat
+//! specification.
+
+// TODO:
+// 1. For Shake128 and Shake256 algorithm variable output length
+//    `d` must be included as part of the spec and API.
 
 use digest::Digest;
 
@@ -8,6 +11,8 @@ use std::io::{self, Read};
 
 use crate::{multicodec, Error, Multicodec, Result};
 
+/// Type adapts several hashing algorithms that can be encoded/decoded
+/// into/from multi-format/multi-hash.
 pub struct Multihash {
     inner: Inner,
 }
@@ -33,6 +38,8 @@ impl From<Inner> for Multihash {
 }
 
 impl Multihash {
+    /// Create a Multihash instance to generate hash-digest and encode
+    /// them in multi-format.
     pub fn from_codec(codec: Multicodec) -> Result<Multihash> {
         let code = codec.to_code();
         let inner = match code {
@@ -92,8 +99,12 @@ impl Multihash {
         Ok(inner.into())
     }
 
-    // <hash-func-type><digest-length><digest-value>
+    /// Decode a hash-digest that was encoded using multi-format
+    /// specification. Return the Multihash value and remaining byte-slice.
+    /// Use the Multihash value to get the hash-digest and hash-algorithm
+    /// used to generate the digest.
     pub fn from_slice(buf: &[u8]) -> Result<(Multihash, &[u8])> {
+        // <hash-func-type><digest-length><digest-value>
         use unsigned_varint::decode;
 
         let (codec, digest, rem) = {
@@ -158,6 +169,18 @@ impl Multihash {
         Ok((inner.into(), rem))
     }
 
+    /// Accumulate bytes for which a hash-digest needs to be generated.
+    ///
+    /// Typical usage:
+    ///
+    /// ```
+    ///     let hasher = Multihash::from_code(multicodec::SHA2_256);
+    ///     hasher.write("hello world".as_bytes());
+    ///     (codec, digest) = hasher.finish().unwrap();
+    /// ```
+    ///
+    /// To reuse the multihash value, call `reset()` and repeat the process.
+    ///
     pub fn write(&mut self, bytes: &[u8]) -> Result<&mut Self> {
         match &mut self.inner {
             Inner::Identity(_, hasher) => hasher.write(bytes)?,
@@ -175,6 +198,8 @@ impl Multihash {
         Ok(self)
     }
 
+    /// Finish accumulating data for generating digest, calling this value
+    /// shall actually generate the final digest.
     pub fn finish(&mut self) -> Result<&mut Self> {
         match &mut self.inner {
             Inner::Identity(_, hasher) => hasher.finish()?,
@@ -192,6 +217,8 @@ impl Multihash {
         Ok(self)
     }
 
+    /// Reset to reuse this value for ingesting new data and generate a
+    /// new hash digest.
     pub fn reset(&mut self) -> Result<&mut Self> {
         match &mut self.inner {
             Inner::Identity(_, hasher) => hasher.reset()?,
@@ -209,12 +236,16 @@ impl Multihash {
         Ok(self)
     }
 
+    /// Encode hash-digest and associated headers into
+    /// multi-format/multi-hash specification.
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut buf = Vec::default();
         self.encode_with(&mut buf)?;
         Ok(buf)
     }
 
+    /// Similar to encode() but avoid allocation by using supplied buffer
+    /// `buf`.
     pub fn encode_with<W>(&self, buf: &mut W) -> Result<usize>
     where
         W: io::Write,
@@ -245,6 +276,7 @@ impl Multihash {
         Ok(n + m + digest.len())
     }
 
+    /// Return the multihash codec.
     pub fn to_codec(&self) -> Multicodec {
         match &self.inner {
             Inner::Identity(codec, _) => codec.clone(),
@@ -261,6 +293,8 @@ impl Multihash {
         }
     }
 
+    /// Unwrap the underlying codec and hash digest. Panic if digest
+    /// is not generated or decoded.
     pub fn unwrap(self) -> (Multicodec, Vec<u8>) {
         let digest = match &self.inner {
             Inner::Identity(_, hasher) => hasher.as_digest().unwrap(),

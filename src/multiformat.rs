@@ -1,3 +1,7 @@
+//! Module implement Multiformat type for reading byte-stream.
+
+#[allow(unused_imports)]
+use crate::multicodec::TABLE;
 use crate::{
     multibase::Multibase,
     multicodec::{self, Codepoint, Multicodec},
@@ -5,16 +9,22 @@ use crate::{
     Error, Result,
 };
 
-pub enum Multiformats {
+/// Enumeration of different multiformats.
+///
+/// Typically used for parsing input byte-stream.
+pub enum Multiformat {
     Multibase(Multibase),
     Multihash(Multihash),
 }
 
-impl Multiformats {
+impl Multiformat {
+    /// Convert input byte-stream into one of multi-format types. If
+    /// `code_points` is None, then default [TABLE] from [multicodec]
+    /// is used.
     pub fn from_slice<'a, 'b>(
         buf: &'a [u8],
         code_points: Option<&'b [Codepoint]>,
-    ) -> Result<(Multiformats, &'a [u8])> {
+    ) -> Result<(Multiformat, &'a [u8])> {
         let codes = code_points.unwrap_or(multicodec::TABLE.as_ref());
 
         let (codec, _) = Multicodec::from_slice(buf)?;
@@ -25,11 +35,11 @@ impl Multiformats {
                 Some(code_point) => match code_point.tag.as_str() {
                     "multibase" => {
                         let val = Multibase::from_slice(buf)?;
-                        break (Multiformats::Multibase(val), &buf[buf.len()..]);
+                        break (Multiformat::Multibase(val), &buf[buf.len()..]);
                     }
                     "multihash" => {
                         let (val, rem) = Multihash::from_slice(buf)?;
-                        break (Multiformats::Multihash(val), rem);
+                        break (Multiformat::Multihash(val), rem);
                     }
                     _ => (),
                 },

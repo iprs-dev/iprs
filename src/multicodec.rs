@@ -114,7 +114,7 @@ impl Multicodec {
         Ok(slice.to_vec())
     }
 
-    /// Similar to encode() by avoid allocation by using supplied buffer
+    /// Similar to encode() but avoid allocation by using supplied buffer
     /// `buf`.
     pub fn encode_with<W>(&self, buf: &mut W) -> Result<usize>
     where

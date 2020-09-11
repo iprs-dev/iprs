@@ -1,3 +1,7 @@
+//! Module handles [multibase] specification.
+//!
+//! [multibase]: https://github.com/multiformats/multibase
+
 use std::io;
 
 use crate::{
@@ -5,6 +9,11 @@ use crate::{
     Error, Result,
 };
 
+/// Type to encode/decode bytes into/from multi-base formats.
+///
+/// Refer to [multibase] specification for supported base formats.
+///
+/// [multibase]: https://github.com/multiformats/multibase
 pub struct Multibase {
     codec: Multicodec,
     base: multibase::Base,
@@ -12,6 +21,7 @@ pub struct Multibase {
 }
 
 impl Multibase {
+    /// Create a multibase encoder from one of the many base formats.
     pub fn from_base(base: multibase::Base) -> Result<Multibase> {
         let val = Multibase {
             codec: multicodec::MULTIBASE.into(),
@@ -21,6 +31,10 @@ impl Multibase {
         Ok(val)
     }
 
+    /// Create a multibase encoder from character prefix defined in multibase
+    /// [specification].
+    ///
+    /// [specification]: https://github.com/multiformats/multibase/blob/master/multibase.csv
     pub fn from_char(ch: char) -> Result<Multibase> {
         let val = Multibase {
             codec: multicodec::MULTIBASE.into(),
@@ -30,6 +44,13 @@ impl Multibase {
         Ok(val)
     }
 
+    /// Decode base-format into binary-data.
+    ///
+    /// Use the returned `Multibase` type to get the binary-data.
+    ///
+    /// ```ignore
+    ///     Multibase::from_slice(input)?.to_bytes()
+    /// ```
     pub fn from_slice(buf: &[u8]) -> Result<Multibase> {
         use std::str::from_utf8;
 
@@ -47,12 +68,15 @@ impl Multibase {
         Ok(val)
     }
 
+    /// Encode input binary-data using this base format.
     pub fn encode<I: AsRef<[u8]>>(&self, input: I) -> Result<Vec<u8>> {
         let mut buf = Vec::default();
         self.encode_with(input, &mut buf)?;
         Ok(buf)
     }
 
+    /// Same as encode but avoids memory allocation by using the supplied
+    /// buffer `buf`.
     pub fn encode_with<I, W>(&self, input: I, buf: &mut W) -> Result<usize>
     where
         I: AsRef<[u8]>,
@@ -67,18 +91,23 @@ impl Multibase {
         Ok(n + m)
     }
 
+    /// Return the codec value.
     pub fn to_codec(&self) -> Multicodec {
         self.codec.clone()
     }
 
+    /// Return the `Base` format type.
     pub fn to_base(&self) -> multibase::Base {
         self.base.clone()
     }
 
+    /// Return the decoded binary-data from base-format.
     pub fn to_bytes(&self) -> Option<Vec<u8>> {
         self.data.clone()
     }
 
+    /// Same as to_bytes() but return a reference, might be cheaper
+    /// than calling `to_bytes()`.
     pub fn as_bytes(&self) -> Option<&[u8]> {
         self.data.as_ref().map(|x| x.as_slice())
     }
