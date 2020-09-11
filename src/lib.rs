@@ -1,6 +1,6 @@
-//! Package implement [multiformat] specification.
+//! Package implement [multiformats] specification.
 //!
-//! [multiformat]: http://multiformats.io
+//! [multiformats]: http://multiformats.io
 use std::{error, fmt, result};
 
 #[macro_use]

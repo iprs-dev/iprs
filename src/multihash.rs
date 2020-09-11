@@ -1,3 +1,7 @@
+//! NOTE:
+//! 1. For Shake128 and Shake256 algorithm variable output length
+//!    `d` must be included as part of the spec and API.
+
 use digest::Digest;
 
 use std::io::{self, Read};
@@ -16,7 +20,6 @@ enum Inner {
     Blake2b(Multicodec, Blake2b),
     Blake2s(Multicodec, Blake2s),
     Blake3(Multicodec, Blake3),
-    Murmur3(Multicodec, Murmur3),
     Md4(Multicodec, Md4),
     Md5(Multicodec, Md5),
     Skein(Multicodec, Skein),
@@ -52,10 +55,6 @@ impl Multihash {
             multicodec::BLAKE3 => {
                 let hasher = Blake3::from_code(code)?;
                 Inner::Blake3(codec, hasher)
-            }
-            multicodec::MURMUR3_32 | multicodec::MURMUR3_128 => {
-                let hasher = Murmur3::from_code(code, u32::default())?;
-                Inner::Murmur3(codec, hasher)
             }
             multicodec::BLAKE2B_8..=multicodec::BLAKE2B_512 => {
                 let hasher = Blake2b::from_code(code)?;
@@ -129,10 +128,6 @@ impl Multihash {
                 let hasher = Blake3::from_slice(code, digest)?;
                 Inner::Blake3(codec, hasher)
             }
-            multicodec::MURMUR3_32 | multicodec::MURMUR3_128 => {
-                let hasher = Murmur3::from_slice(code, digest)?;
-                Inner::Murmur3(codec, hasher)
-            }
             multicodec::BLAKE2B_8..=multicodec::BLAKE2B_512 => {
                 let hasher = Blake2b::from_slice(code, digest)?;
                 Inner::Blake2b(codec, hasher)
@@ -163,13 +158,6 @@ impl Multihash {
         Ok((inner.into(), rem))
     }
 
-    pub fn set_murmur3_seed(&mut self, seed: u32) {
-        match &mut self.inner {
-            Inner::Murmur3(_, hasher) => hasher.set_seed(seed),
-            _ => (),
-        }
-    }
-
     pub fn write(&mut self, bytes: &[u8]) -> Result<&mut Self> {
         match &mut self.inner {
             Inner::Identity(_, hasher) => hasher.write(bytes)?,
@@ -177,7 +165,6 @@ impl Multihash {
             Inner::Sha2(_, hasher) => hasher.write(bytes)?,
             Inner::Sha3(_, hasher) => hasher.write(bytes)?,
             Inner::Blake3(_, hasher) => hasher.write(bytes)?,
-            Inner::Murmur3(_, hasher) => hasher.write(bytes)?,
             Inner::Blake2b(_, hasher) => hasher.write(bytes)?,
             Inner::Blake2s(_, hasher) => hasher.write(bytes)?,
             Inner::Md4(_, hasher) => hasher.write(bytes)?,
@@ -195,7 +182,6 @@ impl Multihash {
             Inner::Sha2(_, hasher) => hasher.finish()?,
             Inner::Sha3(_, hasher) => hasher.finish()?,
             Inner::Blake3(_, hasher) => hasher.finish()?,
-            Inner::Murmur3(_, hasher) => hasher.finish()?,
             Inner::Blake2b(_, hasher) => hasher.finish()?,
             Inner::Blake2s(_, hasher) => hasher.finish()?,
             Inner::Md4(_, hasher) => hasher.finish()?,
@@ -213,7 +199,6 @@ impl Multihash {
             Inner::Sha2(_, hasher) => hasher.reset()?,
             Inner::Sha3(_, hasher) => hasher.reset()?,
             Inner::Blake3(_, hasher) => hasher.reset()?,
-            Inner::Murmur3(_, hasher) => hasher.reset()?,
             Inner::Blake2b(_, hasher) => hasher.reset()?,
             Inner::Blake2s(_, hasher) => hasher.reset()?,
             Inner::Md4(_, hasher) => hasher.reset()?,
@@ -242,7 +227,6 @@ impl Multihash {
             Inner::Sha2(_, hasher) => hasher.as_digest()?,
             Inner::Sha3(_, hasher) => hasher.as_digest()?,
             Inner::Blake3(_, hasher) => hasher.as_digest()?,
-            Inner::Murmur3(_, hasher) => hasher.as_digest()?,
             Inner::Blake2b(_, hasher) => hasher.as_digest()?,
             Inner::Blake2s(_, hasher) => hasher.as_digest()?,
             Inner::Md4(_, hasher) => hasher.as_digest()?,
@@ -268,7 +252,6 @@ impl Multihash {
             Inner::Sha2(codec, _) => codec.clone(),
             Inner::Sha3(codec, _) => codec.clone(),
             Inner::Blake3(codec, _) => codec.clone(),
-            Inner::Murmur3(codec, _) => codec.clone(),
             Inner::Blake2b(codec, _) => codec.clone(),
             Inner::Blake2s(codec, _) => codec.clone(),
             Inner::Md4(codec, _) => codec.clone(),
@@ -285,7 +268,6 @@ impl Multihash {
             Inner::Sha2(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Sha3(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Blake3(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Murmur3(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Blake2b(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Blake2s(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Md4(_, hasher) => hasher.as_digest().unwrap(),
@@ -1187,145 +1169,6 @@ impl Blake2s {
         match &self.digest {
             Some(digest) => Ok(digest),
             None => err_at!(Invalid, msg: format!("no digest")),
-        }
-    }
-}
-
-enum Murmur3 {
-    Algo32 {
-        seed: u32,
-        buf: Vec<u8>,
-        digest: Option<Vec<u8>>,
-    },
-    Algo128 {
-        seed: u32,
-        buf: Vec<u8>,
-        digest: Option<Vec<u8>>,
-    },
-}
-
-impl Murmur3 {
-    fn from_code(code: u128, seed: u32) -> Result<Murmur3> {
-        let buf = Vec::default();
-        let digest = None;
-        let val = match code {
-            multicodec::MURMUR3_32 => Murmur3::Algo32 { seed, buf, digest },
-            multicodec::MURMUR3_128 => Murmur3::Algo128 { seed, buf, digest },
-            _ => err_at!(Fatal, msg: format!("unreachable"))?,
-        };
-        Ok(val)
-    }
-
-    fn from_slice(code: u128, buf: &[u8]) -> Result<Murmur3> {
-        use unsigned_varint::decode;
-
-        let out = Vec::default();
-        let (seed, digest) = err_at!(BadInput, decode::u32(&buf))?;
-        let val = match code {
-            multicodec::MURMUR3_32 => Murmur3::Algo32 {
-                seed,
-                digest: Some(digest.to_vec()),
-                buf: out,
-            },
-            multicodec::MURMUR3_128 => Murmur3::Algo128 {
-                seed,
-                digest: Some(digest.to_vec()),
-                buf: out,
-            },
-            _ => err_at!(Fatal, msg: format!("unreachable"))?,
-        };
-        Ok(val)
-    }
-
-    fn set_seed(&mut self, new_seed: u32) {
-        match self {
-            Murmur3::Algo32 { seed, .. } => *seed = new_seed,
-            Murmur3::Algo128 { seed, .. } => *seed = new_seed,
-        }
-    }
-
-    fn write(&mut self, bytes: &[u8]) -> Result<()> {
-        match self {
-            Murmur3::Algo32 {
-                buf, digest: None, ..
-            } => buf.extend(bytes),
-            Murmur3::Algo128 {
-                buf, digest: None, ..
-            } => buf.extend(bytes),
-            _ => err_at!(Invalid, msg: format!("finalized"))?,
-        };
-        Ok(())
-    }
-
-    fn finish(&mut self) -> Result<()> {
-        use unsigned_varint::encode;
-
-        match self {
-            Murmur3::Algo32 {
-                seed,
-                buf,
-                digest: digest @ None,
-            } => {
-                let mut out = Vec::default();
-                {
-                    let mut scratch: [u8; 5] = Default::default();
-                    out.extend(encode::u32(*seed, &mut scratch));
-                }
-                {
-                    let mut r = io::Cursor::new(buf.as_slice());
-                    let dval = err_at!(HashFail, murmur3::murmur3_32(&mut r, *seed))?;
-                    out.extend(&dval.to_be_bytes());
-                }
-                *digest = Some(out);
-                buf.truncate(0);
-            }
-            Murmur3::Algo128 {
-                seed,
-                buf,
-                digest: digest @ None,
-            } => {
-                let mut out = Vec::default();
-                {
-                    let mut scratch: [u8; 5] = Default::default();
-                    out.extend(encode::u32(*seed, &mut scratch));
-                };
-                {
-                    let mut r = io::Cursor::new(buf.as_slice());
-                    let dval = if cfg!(target_arch = "x86_64") {
-                        err_at!(HashFail, murmur3::murmur3_x64_128(&mut r, *seed))?
-                    } else {
-                        err_at!(HashFail, murmur3::murmur3_x86_128(&mut r, *seed))?
-                    };
-                    out.extend(&dval.to_be_bytes());
-                }
-                *digest = Some(out);
-                buf.truncate(0);
-            }
-            _ => err_at!(Invalid, msg: format!("double finalize"))?,
-        };
-        Ok(())
-    }
-
-    fn reset(&mut self) -> Result<()> {
-        let digest = match self {
-            Murmur3::Algo32 { digest, .. } => digest,
-            Murmur3::Algo128 { digest, .. } => digest,
-        };
-        digest.take();
-        Ok(())
-    }
-
-    fn as_digest(&self) -> Result<&[u8]> {
-        match self {
-            Murmur3::Algo32 {
-                digest: Some(digest),
-                ..
-            } => Ok(digest),
-            Murmur3::Algo128 {
-                digest: Some(digest),
-                ..
-            } => Ok(digest),
-            _ => err_at!(Invalid, msg: format!("no digest"))?,
         }
     }
 }
