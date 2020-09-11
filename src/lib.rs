@@ -5,10 +5,11 @@ use std::{error, fmt, result};
 
 #[macro_use]
 mod util;
+pub mod multibase;
 pub mod multicodec;
+pub mod multiformat;
 pub mod multihash;
 
-pub use multibase;
 pub use multicodec::Multicodec;
 
 /// Type alias for Result return type, used by this package.

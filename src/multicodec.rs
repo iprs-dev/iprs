@@ -168,13 +168,30 @@ macro_rules! code_points {
                 },)*
             ];
 
-            /// Pre-sorted table of multihash code values, only codes tagged as
-            /// "multihash" will be gathered in this table.
+            // Pre-sorted table of multihash code values, only codes tagged as
+            // "multihash" will be gathered in this table.
             static ref TABLE_MULTIHASH: Vec<Codepoint> = {
                 let mut codes = Vec::default();
                 $(
                     match $tag {
                         "multihash" => codes.push(Codepoint {
+                            code: $code,
+                            name: $name.to_string(),
+                            tag: $tag.to_string()
+                        }),
+                        _ => ()
+                    };
+                )*
+                codes
+            };
+
+            // Pre-sorted table of multibase code values, only codes tagged as
+            // "multibase" will be gathered in this table.
+            static ref TABLE_MULTIBASE: Vec<Codepoint> = {
+                let mut codes = Vec::default();
+                $(
+                    match $tag {
+                        "multibase" => codes.push(Codepoint {
                             code: $code,
                             name: $name.to_string(),
                             tag: $tag.to_string()
@@ -1144,6 +1161,11 @@ code_points![
 /// Return a list of code-points tagged as "multihash".
 pub fn multihash_codes() -> Vec<Codepoint> {
     TABLE_MULTIHASH.clone()
+}
+
+/// Return a list of code-points tagged as "multibase".
+pub fn multibase_codes() -> Vec<Codepoint> {
+    TABLE_MULTIBASE.clone()
 }
 
 #[cfg(test)]
