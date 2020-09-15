@@ -5,6 +5,7 @@ use std::{error, fmt, result};
 
 #[macro_use]
 mod util;
+pub mod multiaddr;
 pub mod multibase;
 pub mod multicodec;
 pub mod multiformat;
