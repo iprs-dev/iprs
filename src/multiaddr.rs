@@ -3,9 +3,16 @@ use std::{convert::TryInto, net};
 use crate::multicodec::{self, Multicodec};
 
 pub enum Multiaddr {
-    IP4(net::Ipv4Addr, Option<Box<Multiaddr>>),
-    Tcp(u16),
-    Udp(u16),
+    IP4 {
+        addr: net::Ipv4Addr,
+        port: Option<Box<Multiaddr>>,
+    },
+    Tcp {
+        port: u16,
+    },
+    Udp {
+        port: u16,
+    },
 }
 
 impl Multiaddr {
@@ -22,11 +29,20 @@ impl Multiaddr {
     fn parse_text_parts(parts: &[&str]) -> Option<Box<Multiaddr>> {
         match parts {
             ["ipv4", addr, ..] => {
-                let conn = Self::parse_text_parts(&parts[2..]);
-                Some(Box::new(Multiaddr::IP4(addr.parse().ok()?, conn)))
+                let port = Self::parse_text_parts(&parts[2..]);
+                Some(Box::new(Multiaddr::IP4 {
+                    addr: addr.parse().ok()?,
+                    port,
+                }))
             }
-            ["tcp", port] => Some(Box::new(Multiaddr::Tcp(port.parse().ok()?))),
-            ["udp", port] => Some(Box::new(Multiaddr::Udp(port.parse().ok()?))),
+            ["tcp", port] => {
+                let port = port.parse().ok()?;
+                Some(Box::new(Multiaddr::Tcp { port }))
+            }
+            ["udp", port] => {
+                let port = port.parse().ok()?;
+                Some(Box::new(Multiaddr::Udp { port }))
+            }
             _ => None,
         }
     }
@@ -45,15 +61,15 @@ impl Multiaddr {
                     Some((port, byts)) => (Some(port), byts),
                     None => (None, byts),
                 };
-                Some((Box::new(Multiaddr::IP4(addr, port)), byts))
+                Some((Box::new(Multiaddr::IP4 { addr, port }), byts))
             }
             multicodec::TCP if bs.len() >= 2 => {
                 let port = u16::from_be_bytes(bs[..2].try_into().unwrap());
-                Some((Box::new(Multiaddr::Tcp(port)), &bs[2..]))
+                Some((Box::new(Multiaddr::Tcp { port }), &bs[2..]))
             }
             multicodec::UDP if bs.len() >= 2 => {
                 let port = u16::from_be_bytes(bs[..2].try_into().unwrap());
-                Some((Box::new(Multiaddr::Udp(port)), &bs[2..]))
+                Some((Box::new(Multiaddr::Udp { port }), &bs[2..]))
             }
             _ => None,
         }

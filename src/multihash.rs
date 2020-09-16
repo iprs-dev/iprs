@@ -267,7 +267,11 @@ impl Multihash {
         };
         let n = self.to_codec().encode_with(buf)?;
         let m = {
+            #[cfg(not(target_arch = "wasm32"))]
             let mut scratch: [u8; 10] = Default::default();
+            #[cfg(target_arch = "wasm32")]
+            let mut scratch: [u8; 5] = Default::default();
+
             let slice = encode::usize(digest.len(), &mut scratch);
             err_at!(IOError, buf.write(slice))?;
             slice.len()

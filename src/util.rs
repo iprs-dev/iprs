@@ -33,6 +33,7 @@ macro_rules! err_at {
             Err(Fatal(_, s)) => Err(Fatal(p, s)),
             Err(IOError(_, s)) => Err(IOError(p, s)),
             Err(Invalid(_, s)) => Err(Invalid(p, s)),
+            Err(InvalidKeyPair(_, s)) => Err(InvalidKeyPair(p, s)),
             Err(BadInput(_, s)) => Err(BadInput(p, s)),
             Err(BadCodec(_, s)) => Err(BadCodec(p, s)),
             Err(HashFail(_, s)) => Err(HashFail(p, s)),

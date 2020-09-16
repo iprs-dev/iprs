@@ -5,6 +5,7 @@ use std::{error, fmt, result};
 
 #[macro_use]
 mod util;
+pub mod key_pair;
 pub mod multiaddr;
 pub mod multibase;
 pub mod multicodec;
@@ -27,6 +28,7 @@ pub enum Error {
     Fatal(String, String),
     IOError(String, String),
     Invalid(String, String),
+    InvalidKeyPair(String, String),
     BadInput(String, String),
     BadCodec(String, String),
     HashFail(String, String),
@@ -41,6 +43,7 @@ impl fmt::Display for Error {
             Fatal(p, msg) => write!(f, "{} Fatal: {}", p, msg),
             IOError(p, msg) => write!(f, "{} IOError: {}", p, msg),
             Invalid(p, msg) => write!(f, "{} Invalid: {}", p, msg),
+            InvalidKeyPair(p, msg) => write!(f, "{} InvalidKeyPair: {}", p, msg),
             BadInput(p, msg) => write!(f, "{} BadInput: {}", p, msg),
             BadCodec(p, msg) => write!(f, "{} BadCodec: {}", p, msg),
             HashFail(p, msg) => write!(f, "{} HashFail: {}", p, msg),
