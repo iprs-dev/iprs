@@ -465,6 +465,8 @@ code_points![
     (ED448_PUB, 0x1203, "ed448-pub", "key"),
     /// _key_
     (X448_PUB, 0x1204, "x448-pub", "key"),
+    /// _key_, Ed25519 private key
+    (ED25519_PRIV, 0x1300, "ed25519-priv", "key"),
     /// _multihash_
     (KANGAROOTWELVE, 0x1d01, "kangarootwelve", "multihash"),
     /// _multihash_

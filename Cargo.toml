@@ -31,7 +31,10 @@ zeroize = "1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ring = { version = "0.16.9", features = ["alloc", "std"], default-features = false }
+asn1_der = "0.6.1"
 
 [dev-dependencies]
 reqwest = { version = "0.10.8", features = ["blocking"] }
 parse_int = "0.4.0"
+rand = "0.7.3"
+quickcheck = "0.9.2"

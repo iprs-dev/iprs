@@ -173,7 +173,7 @@ impl Multihash {
     ///
     /// Typical usage:
     ///
-    /// ```
+    /// ```ignore
     ///     let hasher = Multihash::from_code(multicodec::SHA2_256);
     ///     hasher.write("hello world".as_bytes());
     ///     (codec, digest) = hasher.finish().unwrap();
