@@ -31,17 +31,19 @@ fn test_table() {
             })
             .collect();
         // remove (ipfs, multiaddr, 0x01a5, libp2p (deprecated))
-        assert_eq!(total_lines[97][0], "ipfs", "{:?}", total_lines[97]);
-        assert_eq!(total_lines[97][1], "0x1a5", "{:?}", total_lines[97]);
-        assert_eq!(total_lines[97][2], "multiaddr", "{:?}", total_lines[97]);
-        total_lines.remove(97);
+        assert_eq!(total_lines[98][0], "ipfs", "{:?}", total_lines[98]);
+        assert_eq!(total_lines[98][1], "0x1a5", "{:?}", total_lines[98]);
+        assert_eq!(total_lines[98][2], "multiaddr", "{:?}", total_lines[98]);
+        total_lines.remove(98);
         total_lines
     };
+
     let pkg_lines: Vec<Vec<String>> = (&TABLE)
         .to_vec()
         .into_iter()
         .map(|cp| vec![cp.name, format!("0x{:x}", cp.code), cp.tag])
         .collect();
+
     assert_eq!(
         spec_lines.len(),
         pkg_lines.len(),

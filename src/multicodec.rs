@@ -377,6 +377,8 @@ code_points![
     (X25519_PUB, 0xec, "x25519-pub", "key"),
     /// _key_
     (ED25519_PUB, 0xed, "ed25519-pub", "key"),
+    /// _key_, BLS12-381 concatenated public keys in both the G1 and G2 fields
+    (BLS12_381_G1G2_PUB, 0xee, "bls12_381-g1g2-pub", "key"),
     /// _ipld_
     (DASH_BLOCK, 0xf0, "dash-block", "ipld"),
     /// _ipld_
