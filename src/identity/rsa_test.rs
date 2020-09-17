@@ -20,16 +20,16 @@ impl fmt::Debug for SomeKeypair {
 
 impl Arbitrary for SomeKeypair {
     fn arbitrary<G: Gen>(g: &mut G) -> SomeKeypair {
-        let key = [KEY1, KEY2, KEY3].choose(g).unwrap().to_vec();
-        SomeKeypair(Keypair::from_pkcs8(key).unwrap())
+        let mut key = [KEY1, KEY2, KEY3].choose(g).unwrap().to_vec();
+        SomeKeypair(Keypair::from_pkcs8(&mut key).unwrap())
     }
 }
 
 #[test]
 fn rsa_from_pkcs8() {
-    assert!(Keypair::from_pkcs8(KEY1.to_vec()).is_ok());
-    assert!(Keypair::from_pkcs8(KEY2.to_vec()).is_ok());
-    assert!(Keypair::from_pkcs8(KEY3.to_vec()).is_ok());
+    assert!(Keypair::from_pkcs8(&mut KEY1.to_vec()).is_ok());
+    assert!(Keypair::from_pkcs8(&mut KEY2.to_vec()).is_ok());
+    assert!(Keypair::from_pkcs8(&mut KEY3.to_vec()).is_ok());
 }
 
 #[test]

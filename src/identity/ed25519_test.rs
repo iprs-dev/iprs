@@ -34,7 +34,7 @@ fn ed25519_signature() {
     let pk = kp.to_public_key();
 
     let msg = "hello world".as_bytes();
-    let sig = kp.sign(msg);
+    let sig = kp.sign(msg).unwrap();
     assert!(pk.verify(msg, &sig));
 
     let mut invalid_sig = sig.clone();
