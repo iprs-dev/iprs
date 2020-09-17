@@ -43,9 +43,14 @@ impl Keypair {
         Keypair::from(SecretKey::generate())
     }
 
-    /// Get the public key of this keypair.
+    /// Get the reference to public key of this keypair.
     pub fn as_public_key(&self) -> &PublicKey {
         &self.public_key
+    }
+
+    /// Get a copy of public key of this keypair.
+    pub fn to_public_key(&self) -> PublicKey {
+        self.public_key.clone()
     }
 
     /// Get the secret key of this keypair.

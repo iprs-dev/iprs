@@ -48,7 +48,7 @@ impl Keypair {
     /// PrivateKeyInfo format (i.e. unencrypted) as defined in [RFC5208].
     ///
     /// [RFC5208]: https://tools.ietf.org/html/rfc5208#section-5
-    pub fn from_pkcs8(mut der: Vec<u8>) -> Result<Keypair> {
+    pub fn from_pkcs8(der: &mut [u8]) -> Result<Keypair> {
         let key_pair = match RsaKeyPair::from_pkcs8(&der) {
             Ok(val) => Ok(val),
             Err(err) => {

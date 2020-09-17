@@ -112,8 +112,8 @@ impl Keypair {
     }
 
     /// Sign a message using the private key of this keypair.
-    pub fn sign(&self, msg: &[u8]) -> Vec<u8> {
-        self.key_pair.sign(msg).to_bytes().to_vec()
+    pub fn sign(&self, msg: &[u8]) -> Result<Vec<u8>> {
+        Ok(self.key_pair.sign(msg).to_bytes().to_vec())
     }
 
     pub fn try_clone(&self) -> Result<Self> {
