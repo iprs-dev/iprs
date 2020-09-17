@@ -183,7 +183,7 @@ impl SecretKey {
 
     /// Sign a raw message of length 256 bits with this secret key, produces a DER-encoded
     /// ECDSA signature.
-    pub fn sign_hash(&self, msg: &[u8]) -> Result<Vec<u8>> {
+    fn sign_hash(&self, msg: &[u8]) -> Result<Vec<u8>> {
         let m = match Message::parse_slice(msg) {
             Ok(m) => Ok(m),
             Err(err) => {
