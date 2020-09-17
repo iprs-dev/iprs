@@ -22,124 +22,168 @@
 
 use ed25519_dalek::{self as ed25519, Signer as _, Verifier as _};
 use rand::RngCore;
-use std::convert::TryFrom;
-use super::error::DecodingError;
 use zeroize::Zeroize;
-use core::fmt;
+
+use std::{convert::TryFrom, fmt};
+
+use crate::{Error, Result};
+
+// TODO: Should we zeroize key-pair upon drop ?
 
 /// An Ed25519 keypair.
-pub struct Keypair(ed25519::Keypair);
+pub struct Keypair {
+    key_pair: ed25519::Keypair,
+}
+
+impl fmt::Debug for Keypair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Keypair")
+            .field("public", &self.key_pair.public)
+            .finish()
+    }
+}
+
+/// Demote an Ed25519 keypair to a secret key.
+impl From<Keypair> for SecretKey {
+    fn from(val: Keypair) -> SecretKey {
+        SecretKey {
+            secret_key: val.key_pair.secret,
+        }
+    }
+}
+
+/// Promote an Ed25519 secret key into a keypair.
+impl From<SecretKey> for Keypair {
+    fn from(val: SecretKey) -> Keypair {
+        let secret: ed25519::ExpandedSecretKey = (&val.secret_key).into();
+        let public = ed25519::PublicKey::from(&secret);
+        let key_pair = ed25519::Keypair {
+            secret: val.secret_key,
+            public,
+        };
+        Keypair { key_pair }
+    }
+}
 
 impl Keypair {
     /// Generate a new Ed25519 keypair.
-    pub fn generate() -> Keypair {
-        Keypair::from(SecretKey::generate())
+    pub fn generate() -> Result<Keypair> {
+        Ok(Keypair::from(SecretKey::generate()?))
+    }
+
+    /// Get the public key of this keypair.
+    pub fn to_public_key(&self) -> PublicKey {
+        PublicKey {
+            public_key: self.key_pair.public,
+        }
+    }
+
+    /// Get the secret key of this keypair.
+    pub fn to_secret_key(&self) -> Result<SecretKey> {
+        match SecretKey::from_bytes(&mut self.key_pair.secret.to_bytes()) {
+            Ok(secret_key) => Ok(secret_key),
+            Err(err) => {
+                let msg = format!("to secret key");
+                err_at!(DecodeError, Err(err), msg)
+            }
+        }
     }
 
     /// Encode the keypair into a byte array by concatenating the bytes
     /// of the secret scalar and the compressed public point,
     /// an informal standard for encoding Ed25519 keypairs.
     pub fn encode(&self) -> [u8; 64] {
-        self.0.to_bytes()
+        self.key_pair.to_bytes()
     }
 
     /// Decode a keypair from the format produced by `encode`,
     /// zeroing the input on success.
-    pub fn decode(kp: &mut [u8]) -> Result<Keypair, DecodingError> {
-        ed25519::Keypair::from_bytes(kp)
-            .map(|k| { kp.zeroize(); Keypair(k) })
-            .map_err(|e| DecodingError::new("Ed25519 keypair").source(e))
+    pub fn decode(kp: &mut [u8]) -> Result<Keypair> {
+        match ed25519::Keypair::from_bytes(kp) {
+            Ok(key_pair) => {
+                kp.zeroize();
+                Ok(Keypair { key_pair })
+            }
+            Err(err) => {
+                let msg = format!("Ed25519 keypair");
+                err_at!(DecodeError, Err(err), msg)
+            }
+        }
     }
 
     /// Sign a message using the private key of this keypair.
     pub fn sign(&self, msg: &[u8]) -> Vec<u8> {
-        self.0.sign(msg).to_bytes().to_vec()
+        self.key_pair.sign(msg).to_bytes().to_vec()
     }
 
-    /// Get the public key of this keypair.
-    pub fn public(&self) -> PublicKey {
-        PublicKey(self.0.public)
-    }
+    pub fn try_clone(&self) -> Result<Self> {
+        let secret = {
+            let mut sk_bytes = self.key_pair.secret.to_bytes();
+            match SecretKey::from_bytes(&mut sk_bytes) {
+                Ok(val) => Ok(val.secret_key),
+                Err(err) => {
+                    let msg = format!("try_clone ed25519::SecretKey");
+                    err_at!(DecodeError, Err(err), msg)
+                }
+            }?
+        };
+        let public = {
+            let pk_bytes = self.key_pair.public.to_bytes();
+            match ed25519::PublicKey::from_bytes(&pk_bytes) {
+                Ok(public_key) => Ok(public_key),
+                Err(err) => {
+                    let msg = format!("try_clone ed25519::PublicKey");
+                    err_at!(DecodeError, Err(err), msg)
+                }
+            }?
+        };
 
-    /// Get the secret key of this keypair.
-    pub fn secret(&self) -> SecretKey {
-        SecretKey::from_bytes(&mut self.0.secret.to_bytes())
-            .expect("ed25519::SecretKey::from_bytes(to_bytes(k)) != k")
-    }
-}
-
-impl fmt::Debug for Keypair {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Keypair").field("public", &self.0.public).finish()
-    }
-}
-
-impl Clone for Keypair {
-    fn clone(&self) -> Keypair {
-        let mut sk_bytes = self.0.secret.to_bytes();
-        let secret = SecretKey::from_bytes(&mut sk_bytes)
-            .expect("ed25519::SecretKey::from_bytes(to_bytes(k)) != k").0;
-        let public = ed25519::PublicKey::from_bytes(&self.0.public.to_bytes())
-            .expect("ed25519::PublicKey::from_bytes(to_bytes(k)) != k");
-        Keypair(ed25519::Keypair { secret, public })
-    }
-}
-
-/// Demote an Ed25519 keypair to a secret key.
-impl From<Keypair> for SecretKey {
-    fn from(kp: Keypair) -> SecretKey {
-        SecretKey(kp.0.secret)
-    }
-}
-
-/// Promote an Ed25519 secret key into a keypair.
-impl From<SecretKey> for Keypair {
-    fn from(sk: SecretKey) -> Keypair {
-        let secret: ed25519::ExpandedSecretKey = (&sk.0).into();
-        let public = ed25519::PublicKey::from(&secret);
-        Keypair(ed25519::Keypair { secret: sk.0, public })
+        let key_pair = ed25519::Keypair { secret, public };
+        Ok(Keypair { key_pair })
     }
 }
 
 /// An Ed25519 public key.
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct PublicKey(ed25519::PublicKey);
+pub struct PublicKey {
+    public_key: ed25519::PublicKey,
+}
 
 impl PublicKey {
     /// Verify the Ed25519 signature on a message using the public key.
-    pub fn verify(&self, msg: &[u8], sig: &[u8]) -> bool {
-        ed25519::Signature::try_from(sig).and_then(|s| self.0.verify(msg, &s)).is_ok()
+    pub fn verify(&self, msg: &[u8], signature: &[u8]) -> bool {
+        ed25519::Signature::try_from(signature)
+            .and_then(|s| self.public_key.verify(msg, &s))
+            .is_ok()
     }
 
     /// Encode the public key into a byte array in compressed form, i.e.
     /// where one coordinate is represented by a single bit.
     pub fn encode(&self) -> [u8; 32] {
-        self.0.to_bytes()
+        self.public_key.to_bytes()
     }
 
     /// Decode a public key from a byte array as produced by `encode`.
-    pub fn decode(k: &[u8]) -> Result<PublicKey, DecodingError> {
-        ed25519::PublicKey::from_bytes(k)
-            .map_err(|e| DecodingError::new("Ed25519 public key").source(e))
-            .map(PublicKey)
+    pub fn decode(k: &[u8]) -> Result<PublicKey> {
+        match ed25519::PublicKey::from_bytes(k) {
+            Ok(public_key) => Ok(PublicKey { public_key }),
+            Err(err) => {
+                let msg = format!("Ed25519 public key");
+                err_at!(DecodeError, Err(err), msg)
+            }
+        }
     }
 }
 
-/// An Ed25519 secret key.
-pub struct SecretKey(ed25519::SecretKey);
+/// An Ed25519 secret key. Secret key is the meat of the Ed25519 algorithm.
+pub struct SecretKey {
+    secret_key: ed25519::SecretKey,
+}
 
 /// View the bytes of the secret key.
 impl AsRef<[u8]> for SecretKey {
     fn as_ref(&self) -> &[u8] {
-        self.0.as_bytes()
-    }
-}
-
-impl Clone for SecretKey {
-    fn clone(&self) -> SecretKey {
-        let mut sk_bytes = self.0.to_bytes();
-        Self::from_bytes(&mut sk_bytes)
-            .expect("ed25519::SecretKey::from_bytes(to_bytes(k)) != k")
+        self.secret_key.as_bytes()
     }
 }
 
@@ -150,77 +194,53 @@ impl fmt::Debug for SecretKey {
 }
 
 impl SecretKey {
+    // TODO: should we try drand.love ?
     /// Generate a new Ed25519 secret key.
-    pub fn generate() -> SecretKey {
-        let mut bytes = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut bytes);
-        SecretKey(ed25519::SecretKey::from_bytes(&bytes)
-            .expect("this returns `Err` only if the length is wrong; the length is correct; qed"))
+    pub fn generate() -> Result<SecretKey> {
+        let secret_key = {
+            let mut bytes = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut bytes);
+            match ed25519::SecretKey::from_bytes(&bytes) {
+                Ok(secret_key) => Ok(secret_key),
+                Err(err) => {
+                    let msg = format!("Ed25519 generate bad length");
+                    err_at!(BadInput, Err(err), msg)
+                }
+            }?
+        };
+        Ok(SecretKey { secret_key })
     }
 
-    /// Create an Ed25519 secret key from a byte slice, zeroing the input on success.
-    /// If the bytes do not constitute a valid Ed25519 secret key, an error is
-    /// returned.
-    pub fn from_bytes(mut sk_bytes: impl AsMut<[u8]>) -> Result<SecretKey, DecodingError> {
+    /// Create an Ed25519 secret key from a byte slice, zeroing the input on
+    /// success. If the bytes do not constitute a valid Ed25519 secret key,
+    /// an error is returned.
+    pub fn from_bytes(mut sk_bytes: impl AsMut<[u8]>) -> Result<SecretKey> {
         let sk_bytes = sk_bytes.as_mut();
-        let secret = ed25519::SecretKey::from_bytes(&*sk_bytes)
-            .map_err(|e| DecodingError::new("Ed25519 secret key").source(e))?;
+        let secret_key = match ed25519::SecretKey::from_bytes(&*sk_bytes) {
+            Ok(secret_key) => Ok(secret_key),
+            Err(err) => {
+                let msg = format!("Ed25519 secret key");
+                err_at!(DecodeError, Err(err), msg)
+            }
+        }?;
+
         sk_bytes.zeroize();
-        Ok(SecretKey(secret))
+
+        Ok(SecretKey { secret_key })
+    }
+
+    pub fn try_clone(&self) -> Result<Self> {
+        let mut sk_bytes = self.secret_key.to_bytes();
+        match Self::from_bytes(&mut sk_bytes) {
+            Ok(val) => Ok(val),
+            Err(err) => {
+                let msg = format!("try_clone ed25519::SecretKey");
+                err_at!(DecodeError, Err(err), msg)
+            }
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use quickcheck::*;
-
-    fn eq_keypairs(kp1: &Keypair, kp2: &Keypair) -> bool {
-        kp1.public() == kp2.public()
-            &&
-        kp1.0.secret.as_bytes() == kp2.0.secret.as_bytes()
-    }
-
-    #[test]
-    fn ed25519_keypair_encode_decode() {
-        fn prop() -> bool {
-            let kp1 = Keypair::generate();
-            let mut kp1_enc = kp1.encode();
-            let kp2 = Keypair::decode(&mut kp1_enc).unwrap();
-            eq_keypairs(&kp1, &kp2)
-                &&
-            kp1_enc.iter().all(|b| *b == 0)
-        }
-        QuickCheck::new().tests(10).quickcheck(prop as fn() -> _);
-    }
-
-    #[test]
-    fn ed25519_keypair_from_secret() {
-        fn prop() -> bool {
-            let kp1 = Keypair::generate();
-            let mut sk = kp1.0.secret.to_bytes();
-            let kp2 = Keypair::from(SecretKey::from_bytes(&mut sk).unwrap());
-            eq_keypairs(&kp1, &kp2)
-                &&
-            sk == [0u8; 32]
-        }
-        QuickCheck::new().tests(10).quickcheck(prop as fn() -> _);
-    }
-
-    #[test]
-    fn ed25519_signature() {
-        let kp = Keypair::generate();
-        let pk = kp.public();
-
-        let msg = "hello world".as_bytes();
-        let sig = kp.sign(msg);
-        assert!(pk.verify(msg, &sig));
-
-        let mut invalid_sig = sig.clone();
-        invalid_sig[3..6].copy_from_slice(&[10, 23, 42]);
-        assert!(!pk.verify(msg, &invalid_sig));
-
-        let invalid_msg = "h3ll0 w0rld".as_bytes();
-        assert!(!pk.verify(invalid_msg, &sig));
-    }
-}
+#[path = "ed25519_test.rs"]
+mod ed25519_test;

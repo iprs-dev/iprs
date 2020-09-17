@@ -18,7 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-//! RSA keys.
+//! RSA keys
 
 use asn1_der::{Asn1Der, Asn1DerError, DerObject, DerTag, DerValue, FromDerObject, IntoDerObject};
 use lazy_static::lazy_static;
@@ -39,7 +39,9 @@ use crate::{Error, Result};
 
 /// An RSA keypair.
 #[derive(Clone)]
-pub struct Keypair(Arc<RsaKeyPair>);
+pub struct Keypair {
+    key_pair: Arc<RsaKeyPair>,
+}
 
 impl Keypair {
     /// Decode an RSA keypair from a DER-encoded private key in PKCS#8
@@ -47,7 +49,7 @@ impl Keypair {
     ///
     /// [RFC5208]: https://tools.ietf.org/html/rfc5208#section-5
     pub fn from_pkcs8(mut der: Vec<u8>) -> Result<Keypair> {
-        let val = match RsaKeyPair::from_pkcs8(&der) {
+        let key_pair = match RsaKeyPair::from_pkcs8(&der) {
             Ok(val) => Ok(val),
             Err(err) => {
                 let msg = format!("RSA PKCS#8 PrivateKeyInfo");
@@ -57,20 +59,25 @@ impl Keypair {
 
         der.zeroize();
 
-        Ok(Keypair(Arc::new(val)))
+        Ok(Keypair {
+            key_pair: Arc::new(key_pair),
+        })
     }
 
     /// Get public key from the keypair.
     pub fn to_public_key(&self) -> PublicKey {
-        PublicKey(self.0.public_key().as_ref().to_vec())
+        PublicKey {
+            bin: self.key_pair.public_key().as_ref().to_vec(),
+        }
     }
 
+    // TODO: should we try drand.love ?
     /// Sign a message with this keypair.
     pub fn sign(&self, data: &[u8]) -> Result<Vec<u8>> {
-        let mut signature = vec![0; self.0.public_modulus_len()];
+        let mut sig = vec![0; self.key_pair.public_modulus_len()];
         let rng = SystemRandom::new();
-        match self.0.sign(&RSA_PKCS1_SHA256, &rng, &data, &mut signature) {
-            Ok(()) => Ok(signature),
+        match self.key_pair.sign(&RSA_PKCS1_SHA256, &rng, &data, &mut sig) {
+            Ok(()) => Ok(sig),
             Err(err) => {
                 let msg = format!("RSA PublicKey Signing");
                 err_at!(SigningError, Err(err), msg)
@@ -81,15 +88,17 @@ impl Keypair {
 
 /// An RSA public key.
 #[derive(Clone, PartialEq, Eq)]
-pub struct PublicKey(Vec<u8>);
+pub struct PublicKey {
+    bin: Vec<u8>,
+}
 
 impl PublicKey {
     /// Verify an RSA signature on a message using the public key.
-    pub fn verify(&self, msg: &[u8], sig: &[u8]) -> bool {
+    pub fn verify(&self, msg: &[u8], signature: &[u8]) -> bool {
         use ring::signature::UnparsedPublicKey;
 
-        let key = UnparsedPublicKey::new(&RSA_PKCS1_2048_8192_SHA256, &self.0);
-        key.verify(msg, sig).is_ok()
+        let key = UnparsedPublicKey::new(&RSA_PKCS1_2048_8192_SHA256, &self.bin);
+        key.verify(msg, signature).is_ok()
     }
 
     /// Encode the RSA public key in DER as a PKCS#1 RSAPublicKey structure,
@@ -98,7 +107,7 @@ impl PublicKey {
     /// [RFC3447]: https://tools.ietf.org/html/rfc3447#appendix-A.1.1
     pub fn encode_pkcs1(&self) -> Vec<u8> {
         // This is the encoding currently used in-memory, so it is trivial.
-        self.0.clone()
+        self.bin.clone()
     }
 
     /// Encode the RSA public key in DER as a X.509 SubjectPublicKeyInfo
@@ -140,7 +149,7 @@ impl PublicKey {
 
 impl fmt::Debug for PublicKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let bytes = &self.0;
+        let bytes = &self.bin;
         let mut hex = String::with_capacity(bytes.len() * 2);
 
         for byte in bytes {
@@ -211,7 +220,7 @@ struct Asn1SubjectPublicKey(PublicKey);
 
 impl IntoDerObject for Asn1SubjectPublicKey {
     fn into_der_object(self) -> DerObject {
-        let pk_der = (self.0).0;
+        let pk_der = (self.0).bin;
         let mut bit_string = Vec::with_capacity(pk_der.len() + 1);
         // The number of bits in pk_der is trivially always a multiple of 8,
         // so there are always 0 "unused bits" signaled by the first byte.
@@ -220,7 +229,7 @@ impl IntoDerObject for Asn1SubjectPublicKey {
         DerObject::new(DerTag::x03, bit_string.into())
     }
     fn serialized_len(&self) -> usize {
-        DerObject::compute_serialized_len((self.0).0.len() + 1)
+        DerObject::compute_serialized_len((self.0).bin.len() + 1)
     }
 }
 
@@ -232,7 +241,7 @@ impl FromDerObject for Asn1SubjectPublicKey {
         let pk_der: Vec<u8> = o.value.data.into_iter().skip(1).collect();
         // We don't parse pk_der further as an ASN.1 RsaPublicKey, since
         // we only need the DER encoding for `verify`.
-        Ok(Asn1SubjectPublicKey(PublicKey(pk_der)))
+        Ok(Asn1SubjectPublicKey(PublicKey { bin: pk_der }))
     }
 }
 
