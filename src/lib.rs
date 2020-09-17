@@ -11,6 +11,7 @@ pub mod multibase;
 pub mod multicodec;
 pub mod multiformat;
 pub mod multihash;
+pub mod peer_id;
 
 mod keys_proto {
     include!(concat!(env!("OUT_DIR"), "/keys_proto.rs"));

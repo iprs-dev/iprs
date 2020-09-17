@@ -7,16 +7,21 @@
 
 use digest::Digest;
 
-use std::io::{self, Read};
+use std::{
+    cmp,
+    io::{self, Read},
+};
 
 use crate::{multicodec, Error, Multicodec, Result};
 
 /// Type adapts several hashing algorithms that can be encoded/decoded
 /// into/from multi-format/multi-hash.
+#[derive(Clone, Eq, PartialEq, PartialOrd)]
 pub struct Multihash {
     inner: Inner,
 }
 
+#[derive(Clone, Eq, PartialEq, PartialOrd)]
 enum Inner {
     Identity(Multicodec, Identity),
     Sha1(Multicodec, Sha1),
@@ -329,9 +334,24 @@ impl io::Write for Multihash {
     }
 }
 
+#[derive(Clone)]
 struct Identity {
     buf: Vec<u8>,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Identity {}
+
+impl PartialEq for Identity {
+    fn eq(&self, other: &Identity) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Identity {
+    fn partial_cmp(&self, other: &Identity) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 impl Identity {
@@ -378,9 +398,24 @@ impl Identity {
     }
 }
 
+#[derive(Clone)]
 struct Sha1 {
     hasher: sha1::Sha1,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Sha1 {}
+
+impl PartialEq for Sha1 {
+    fn eq(&self, other: &Sha1) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Sha1 {
+    fn partial_cmp(&self, other: &Sha1) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 impl Sha1 {
@@ -427,6 +462,7 @@ impl Sha1 {
     }
 }
 
+#[derive(Clone)]
 enum Sha2 {
     Algo32 {
         hasher: sha2::Sha256,
@@ -438,6 +474,32 @@ enum Sha2 {
         digest: Option<Vec<u8>>,
         double: bool,
     },
+}
+
+impl Eq for Sha2 {}
+
+impl PartialEq for Sha2 {
+    fn eq(&self, other: &Sha2) -> bool {
+        use Sha2::*;
+
+        match (self, other) {
+            (Algo32 { digest, .. }, Algo32 { digest: other, .. }) => digest == other,
+            (Algo64 { digest, .. }, Algo64 { digest: other, .. }) => digest == other,
+            (_, _) => false,
+        }
+    }
+}
+
+impl PartialOrd for Sha2 {
+    fn partial_cmp(&self, other: &Sha2) -> Option<cmp::Ordering> {
+        use Sha2::*;
+
+        match (self, other) {
+            (Algo32 { digest, .. }, Algo32 { digest: other, .. }) => digest.partial_cmp(other),
+            (Algo64 { digest, .. }, Algo64 { digest: other, .. }) => digest.partial_cmp(other),
+            (_, _) => None,
+        }
+    }
 }
 
 impl Sha2 {
@@ -570,6 +632,7 @@ impl Sha2 {
     }
 }
 
+#[derive(Clone)]
 enum Sha3 {
     Sha3_224 {
         hasher: sha3::Sha3_224,
@@ -611,6 +674,56 @@ enum Sha3 {
         hasher: sha3::Keccak512,
         digest: Option<Vec<u8>>,
     },
+}
+
+impl Eq for Sha3 {}
+
+impl PartialEq for Sha3 {
+    fn eq(&self, other: &Sha3) -> bool {
+        use Sha3::*;
+
+        match (self, other) {
+            (Sha3_224 { digest, .. }, Sha3_224 { digest: other, .. }) => digest == other,
+            (Sha3_256 { digest, .. }, Sha3_256 { digest: other, .. }) => digest == other,
+            (Sha3_384 { digest, .. }, Sha3_384 { digest: other, .. }) => digest == other,
+            (Sha3_512 { digest, .. }, Sha3_512 { digest: other, .. }) => digest == other,
+            (Shake128 { digest, .. }, Shake128 { digest: other, .. }) => digest == other,
+            (Shake256 { digest, .. }, Shake256 { digest: other, .. }) => digest == other,
+            (Keccak224 { digest, .. }, Keccak224 { digest: other, .. }) => digest == other,
+            (Keccak256 { digest, .. }, Keccak256 { digest: other, .. }) => digest == other,
+            (Keccak384 { digest, .. }, Keccak384 { digest: other, .. }) => digest == other,
+            (Keccak512 { digest, .. }, Keccak512 { digest: other, .. }) => digest == other,
+            (_, _) => false,
+        }
+    }
+}
+
+impl PartialOrd for Sha3 {
+    fn partial_cmp(&self, other: &Sha3) -> Option<cmp::Ordering> {
+        use Sha3::*;
+
+        match (self, other) {
+            (Sha3_224 { digest, .. }, Sha3_224 { digest: other, .. }) => digest.partial_cmp(other),
+            (Sha3_256 { digest, .. }, Sha3_256 { digest: other, .. }) => digest.partial_cmp(other),
+            (Sha3_384 { digest, .. }, Sha3_384 { digest: other, .. }) => digest.partial_cmp(other),
+            (Sha3_512 { digest, .. }, Sha3_512 { digest: other, .. }) => digest.partial_cmp(other),
+            (Shake128 { digest, .. }, Shake128 { digest: other, .. }) => digest.partial_cmp(other),
+            (Shake256 { digest, .. }, Shake256 { digest: other, .. }) => digest.partial_cmp(other),
+            (Keccak224 { digest, .. }, Keccak224 { digest: other, .. }) => {
+                digest.partial_cmp(other)
+            }
+            (Keccak256 { digest, .. }, Keccak256 { digest: other, .. }) => {
+                digest.partial_cmp(other)
+            }
+            (Keccak384 { digest, .. }, Keccak384 { digest: other, .. }) => {
+                digest.partial_cmp(other)
+            }
+            (Keccak512 { digest, .. }, Keccak512 { digest: other, .. }) => {
+                digest.partial_cmp(other)
+            }
+            (_, _) => None,
+        }
+    }
 }
 
 impl Sha3 {
@@ -915,9 +1028,24 @@ impl Sha3 {
     }
 }
 
+#[derive(Clone)]
 struct Blake3 {
     hasher: blake3::Hasher,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Blake3 {}
+
+impl PartialEq for Blake3 {
+    fn eq(&self, other: &Blake3) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Blake3 {
+    fn partial_cmp(&self, other: &Blake3) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 impl Blake3 {
@@ -967,10 +1095,25 @@ impl Blake3 {
     }
 }
 
+#[derive(Clone)]
 struct Blake2b {
     code: u128,
     hasher: blake2b_simd::State,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Blake2b {}
+
+impl PartialEq for Blake2b {
+    fn eq(&self, other: &Blake2b) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Blake2b {
+    fn partial_cmp(&self, other: &Blake2b) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 impl Blake2b {
@@ -1105,10 +1248,25 @@ impl Blake2b {
     }
 }
 
+#[derive(Clone)]
 struct Blake2s {
     code: u128,
     hasher: blake2s_simd::State,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Blake2s {}
+
+impl PartialEq for Blake2s {
+    fn eq(&self, other: &Blake2s) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Blake2s {
+    fn partial_cmp(&self, other: &Blake2s) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 impl Blake2s {
@@ -1211,9 +1369,24 @@ impl Blake2s {
     }
 }
 
+#[derive(Clone)]
 struct Md4 {
     hasher: md4::Md4,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Md4 {}
+
+impl PartialEq for Md4 {
+    fn eq(&self, other: &Md4) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Md4 {
+    fn partial_cmp(&self, other: &Md4) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 impl Md4 {
@@ -1260,9 +1433,24 @@ impl Md4 {
     }
 }
 
+#[derive(Clone)]
 struct Md5 {
     buf: Vec<u8>,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Md5 {}
+
+impl PartialEq for Md5 {
+    fn eq(&self, other: &Md5) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Md5 {
+    fn partial_cmp(&self, other: &Md5) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 impl Md5 {
@@ -1312,10 +1500,25 @@ impl Md5 {
     }
 }
 
+#[derive(Clone)]
 struct Skein {
     code: u128,
     buf: Vec<u8>,
     digest: Option<Vec<u8>>,
+}
+
+impl Eq for Skein {}
+
+impl PartialEq for Skein {
+    fn eq(&self, other: &Skein) -> bool {
+        self.digest == other.digest
+    }
+}
+
+impl PartialOrd for Skein {
+    fn partial_cmp(&self, other: &Skein) -> Option<cmp::Ordering> {
+        self.digest.partial_cmp(&other.digest)
+    }
 }
 
 macro_rules! skein_digest {
@@ -1603,6 +1806,7 @@ impl Skein {
     }
 }
 
+#[derive(Clone)]
 enum RipeMd {
     Algo160 {
         hasher: ripemd160::Ripemd160,
@@ -1612,6 +1816,32 @@ enum RipeMd {
         hasher: ripemd320::Ripemd320,
         digest: Option<Vec<u8>>,
     },
+}
+
+impl Eq for RipeMd {}
+
+impl PartialEq for RipeMd {
+    fn eq(&self, other: &RipeMd) -> bool {
+        use RipeMd::*;
+
+        match (self, other) {
+            (Algo160 { digest, .. }, Algo160 { digest: other, .. }) => digest == other,
+            (Algo320 { digest, .. }, Algo320 { digest: other, .. }) => digest == other,
+            _ => false,
+        }
+    }
+}
+
+impl PartialOrd for RipeMd {
+    fn partial_cmp(&self, other: &RipeMd) -> Option<cmp::Ordering> {
+        use RipeMd::*;
+
+        match (self, other) {
+            (Algo160 { digest, .. }, Algo160 { digest: other, .. }) => digest.partial_cmp(other),
+            (Algo320 { digest, .. }, Algo320 { digest: other, .. }) => digest.partial_cmp(other),
+            _ => None,
+        }
+    }
 }
 
 impl RipeMd {

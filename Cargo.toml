@@ -11,6 +11,7 @@ documentation = "https://docs.rs/multiformats/"
 edition = "2018"
 
 [dependencies]
+prost = "0.6.1"
 unsigned-varint = "0.5.1"
 multibase = "0.8.0"
 lazy_static = "1.4.0"
@@ -31,7 +32,7 @@ zeroize = "1"
 rand = "0.7.3"
 ed25519-dalek = "1.0.0-pre.4"
 libsecp256k1 = { version = "0.3.5", optional = true }
-prost = "0.6.1"
+bs58 = "0.3.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ring = { version = "0.16.9", features = ["alloc", "std"], default-features = false }

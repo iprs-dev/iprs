@@ -17,7 +17,7 @@ use crate::{Error, Result};
 ///
 /// [multicodec]: https://github.com/multiformats/multicodec
 /// [unsigned-varint]: https://github.com/multiformats/unsigned-varint
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Multicodec {
     code: u128,
 }
