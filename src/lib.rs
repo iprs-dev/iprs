@@ -12,6 +12,10 @@ pub mod multicodec;
 pub mod multiformat;
 pub mod multihash;
 
+mod keys_proto {
+    include!(concat!(env!("OUT_DIR"), "/keys_proto.rs"));
+}
+
 pub use crate::multibase::Multibase;
 pub use multicodec::Multicodec;
 pub use multiformat::Multiformat;
