@@ -13,6 +13,7 @@ use crate::{Error, Result};
 /// Refer to [multibase] specification for supported base formats.
 ///
 /// [multibase]: https://github.com/multiformats/multibase
+#[derive(Clone, Eq, PartialEq)]
 pub struct Multibase {
     base: multibase::Base,
     data: Option<Vec<u8>>,
@@ -20,30 +21,44 @@ pub struct Multibase {
 
 impl Multibase {
     /// Create a multibase encoder from one of the many base formats.
-    pub fn from_base(base: multibase::Base) -> Result<Multibase> {
-        Ok(Multibase { base, data: None })
+    /// Subsequently encode() on this value will encode the supplied `data`.
+    pub fn from_base(base: multibase::Base, data: &[u8]) -> Result<Multibase> {
+        Ok(Multibase {
+            base,
+            data: Some(data.to_vec()),
+        })
     }
 
     /// Create a multibase encoder from character prefix defined in multibase
-    /// [specification].
+    /// [specification]. Subsequently encode() on this value will encode the
+    /// supplied `data`.
     ///
     /// [specification]: https://github.com/multiformats/multibase/blob/master/multibase.csv
-    pub fn from_char(ch: char) -> Result<Multibase> {
+    pub fn from_char(ch: char, data: &[u8]) -> Result<Multibase> {
         let base = match multibase::Base::from_code(ch) {
             Ok(base) => Ok(base),
             Err(e) => err_at!(BadInput, Err(e), format!("bad char `{}`", ch)),
         }?;
 
-        Ok(Multibase { base, data: None })
+        Ok(Multibase {
+            base,
+            data: Some(data.to_vec()),
+        })
     }
 
     /// Encode input binary-data using this base format, encoded stream of
     /// bytes shall have the <base-prefix> followed by the actual
     /// base-representation of the `input`.
-    pub fn encode<I: AsRef<[u8]>>(&self, input: I) -> Result<Vec<u8>> {
-        let mut buf = Vec::default();
-        self.encode_with(input, &mut buf)?;
-        Ok(buf)
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        let out = match &self.data {
+            Some(data) => {
+                let mut buf = Vec::default();
+                self.encode_with(data, &mut buf)?;
+                buf
+            }
+            None => vec![],
+        };
+        Ok(out)
     }
 
     /// Decode <base-prefix> followed by the base-representation, into

@@ -1,10 +1,8 @@
 //! Module implement Multiformat type for reading byte-stream.
 
-#[allow(unused_imports)]
-use crate::multicodec::TABLE;
 use crate::{
     multibase::Multibase,
-    multicodec::{self, Codepoint, Multicodec},
+    multicodec::{self, Multicodec},
     multihash::Multihash,
     Error, Result,
 };
@@ -13,39 +11,59 @@ use crate::{
 ///
 /// Typically used for parsing input byte-stream.
 pub enum Multiformat {
-    Multibase(Multibase),
-    Multihash(Multihash),
+    Multibase(Multicodec, Multibase),
+    Multihash(Multicodec, Multihash),
 }
 
 impl Multiformat {
-    /// Convert input byte-stream into one of multi-format types. If
-    /// `code_points` is None, then default [TABLE] from [multicodec]
-    /// is used.
-    pub fn from_slice<'a, 'b>(
-        buf: &'a [u8],
-        code_points: Option<&'b [Codepoint]>,
-    ) -> Result<(Multiformat, &'a [u8])> {
-        let codes = code_points.unwrap_or(multicodec::TABLE.as_ref());
+    /// Create a new Multiformat from multi-base.
+    pub fn from_multibase(value: Multibase) -> Result<Multiformat> {
+        let codec: Multicodec = multicodec::MULTIBASE.into();
+        Ok(Multiformat::Multibase(codec, value))
+    }
 
-        let (codec, _) = Multicodec::from_slice(buf)?;
+    /// Create a new Multiformat from multi-hash.
+    pub fn from_multihash(value: Multihash) -> Result<Multiformat> {
+        let codec = value.to_codec();
+        Ok(Multiformat::Multihash(codec, value))
+    }
 
-        let mut iter = codes.iter();
-        let (val, rem) = loop {
-            match iter.next() {
-                Some(code_point) => match code_point.tag.as_str() {
-                    "multibase" => {
-                        let val = Multibase::from_slice(buf)?;
-                        break (Multiformat::Multibase(val), &buf[buf.len()..]);
-                    }
-                    "multihash" => {
-                        let (val, rem) = Multihash::from_slice(buf)?;
-                        break (Multiformat::Multihash(val), rem);
-                    }
-                    _ => (),
-                },
-                None => err_at!(BadInput, msg: format!("{}", codec))?,
+    /// Encode multi-format value and its under-lying type.
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        use Multiformat::*;
+
+        let data = match self {
+            Multibase(codec, mb) => {
+                let mut out = codec.encode()?;
+                out.extend(&mb.encode()?);
+                out
+            }
+            Multihash(_codec, mh) => {
+                // as per specification, multi-codec is encoded by multihash.
+                mh.encode()?
             }
         };
+        Ok(data)
+    }
+
+    /// Decode input byte-stream into one of multi-format types.
+    pub fn decode(buf: &[u8]) -> Result<(Multiformat, &[u8])> {
+        let (codec, rem) = Multicodec::decode(buf)?;
+        let (val, rem) = match codec.to_code() {
+            multicodec::MULTIBASE => {
+                let val = Multibase::decode(rem)?;
+                (Multiformat::Multibase(codec, val), &buf[buf.len()..])
+            }
+            _ => {
+                // as per specification, multi-codec is decoded by multihash.
+                if let Ok((val, rem)) = Multihash::decode(buf) {
+                    (Multiformat::Multihash(codec, val), rem)
+                } else {
+                    err_at!(BadInput, msg: format!("{}", codec))?
+                }
+            }
+        };
+
         Ok((val, rem))
     }
 }

@@ -26,8 +26,7 @@ pub mod rsa;
 #[cfg(feature = "secp256k1")]
 pub mod secp256k1;
 
-// use crate::{PeerId, keys_proto};
-use crate::{keys_proto, Error, Result};
+use crate::{keys_proto, peer_id::PeerId, Error, Result};
 
 // TODO: implement protobuf store for Private-key/Secret-key.
 
@@ -73,8 +72,13 @@ impl Keypair {
     ///
     /// [RFC5208]: https://tools.ietf.org/html/rfc5208#section-5
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn rsa_from_pkcs8(pkcs8_der: &mut [u8]) -> Result<Keypair> {
+    pub fn from_rsa_pkcs8(pkcs8_der: &mut [u8]) -> Result<Keypair> {
         rsa::Keypair::from_pkcs8(pkcs8_der).map(Keypair::Rsa)
+    }
+
+    /// Decode an keypair from serialized ED25519.
+    pub fn from_ed25519_bytes(data: &mut [u8]) -> Result<Keypair> {
+        ed25519::Keypair::decode(data).map(Keypair::Ed25519)
     }
 
     /// Decode a keypair from a DER-encoded Secp256k1 secret key in an
@@ -82,7 +86,7 @@ impl Keypair {
     ///
     /// [RFC5915]: https://tools.ietf.org/html/rfc5915
     #[cfg(feature = "secp256k1")]
-    pub fn secp256k1_from_der(der: &mut [u8]) -> Result<Keypair> {
+    pub fn from_secp256k1_der(der: &mut [u8]) -> Result<Keypair> {
         let secret_key = secp256k1::SecretKey::from_der(der)?;
         Ok(Keypair::Secp256k1(secp256k1::Keypair::from(secret_key)))
     }
@@ -224,10 +228,10 @@ impl PublicKey {
         }
     }
 
-    ///// Convert the `PublicKey` into the corresponding `PeerId`.
-    //pub fn into_peer_id(self) -> PeerId {
-    //    self.into()
-    //}
+    /// Convert the `PublicKey` into the corresponding `PeerId`.
+    pub fn into_peer_id(self) -> Result<PeerId> {
+        PeerId::from_public_key(self)
+    }
 }
 
 #[cfg(test)]
@@ -238,3 +242,7 @@ mod tests {
         println!("keys_proto file: {}", file_path);
     }
 }
+
+#[cfg(test)]
+#[path = "identity_test.rs"]
+mod identity_test;

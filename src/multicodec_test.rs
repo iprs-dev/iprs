@@ -4,11 +4,12 @@ use reqwest::blocking::get;
 use super::*;
 
 #[test]
-fn test_table() {
+fn test_multicodec_spec() {
     let spec = {
         let uri = "https://raw.githubusercontent.com/multiformats/multicodec/master/table.csv";
         get(uri).unwrap().text().unwrap()
     };
+
     let spec_lines: Vec<Vec<String>> = {
         let mut total_lines: Vec<String> = {
             let iter = spec.lines().map(|s| s.to_string());
@@ -31,10 +32,10 @@ fn test_table() {
             })
             .collect();
         // remove (ipfs, multiaddr, 0x01a5, libp2p (deprecated))
-        assert_eq!(total_lines[98][0], "ipfs", "{:?}", total_lines[98]);
-        assert_eq!(total_lines[98][1], "0x1a5", "{:?}", total_lines[98]);
-        assert_eq!(total_lines[98][2], "multiaddr", "{:?}", total_lines[98]);
-        total_lines.remove(98);
+        assert_eq!(total_lines[99][0], "ipfs", "{:?}", total_lines[99]);
+        assert_eq!(total_lines[99][1], "0x1a5", "{:?}", total_lines[99]);
+        assert_eq!(total_lines[99][2], "multiaddr", "{:?}", total_lines[99]);
+        total_lines.remove(99);
         total_lines
     };
 
@@ -66,16 +67,7 @@ fn test_codec() {
 
         let buf = code.encode().unwrap();
 
-        let mut buf_with = Vec::default();
-        assert_eq!(
-            code.encode_with(&mut buf_with).unwrap(),
-            buf.len(),
-            "{:?}",
-            code
-        );
-        assert_eq!(&buf_with[..buf.len()], buf.as_slice(), "{:?}", code);
-
-        let (res_code, res_buf) = Multicodec::from_slice(&buf).unwrap();
+        let (res_code, res_buf) = Multicodec::decode(&buf).unwrap();
         assert_eq!(res_code, code, "{:?}", code);
         assert_eq!(res_buf, vec![].as_slice(), "{:?}", code);
     }

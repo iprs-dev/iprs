@@ -1,7 +1,7 @@
 use bs58;
 use rand::Rng;
 
-use std::{cmp, fmt, hash, str::FromStr};
+use std::{fmt, hash};
 
 use crate::{
     identity::PublicKey,
@@ -50,12 +50,6 @@ impl fmt::Display for PeerId {
     }
 }
 
-impl cmp::PartialOrd for PeerId {
-    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
-        self.mh.partial_cmp(&other.mh)
-    }
-}
-
 impl hash::Hash for PeerId {
     fn hash<H>(&self, state: &mut H)
     where
@@ -74,17 +68,6 @@ impl PartialEq<PeerId> for PeerId {
 impl From<PeerId> for Multihash {
     fn from(peer_id: PeerId) -> Self {
         peer_id.mh
-    }
-}
-
-impl FromStr for PeerId {
-    type Err = Error;
-
-    #[inline]
-    fn from_str(s: &str) -> Result<Self> {
-        let bytes = err_at!(DecodeError, bs58::decode(s).into_vec())?;
-        let (peer_id, _) = PeerId::from_slice(&bytes)?;
-        Ok(peer_id)
     }
 }
 
@@ -107,7 +90,7 @@ impl PeerId {
     /// Checks whether `data` is a valid `PeerId`. If so, returns the
     /// `PeerId`. If not, returns back the data as an error.
     pub fn from_slice(data: &[u8]) -> Result<(PeerId, &[u8])> {
-        let (mh, bytes) = Multihash::from_slice(data)?;
+        let (mh, bytes) = Multihash::decode(data)?;
         Ok((PeerId { mh }, bytes))
     }
 
@@ -120,7 +103,11 @@ impl PeerId {
         Ok(PeerId { mh })
     }
 
-    /// Convert the wire format, if it is in wire-format, into native format.
+    pub fn from_base58(s: &str) -> Result<Self> {
+        let bytes = err_at!(DecodeError, bs58::decode(s).into_vec())?;
+        let (peer_id, _) = PeerId::from_slice(&bytes)?;
+        Ok(peer_id)
+    }
 
     /// Generates a random peer ID from a cryptographically secure PRNG.
     ///
@@ -161,3 +148,7 @@ impl PeerId {
         Some(self.mh == other.mh)
     }
 }
+
+#[cfg(test)]
+#[path = "peer_id_test.rs"]
+mod peer_id_test;

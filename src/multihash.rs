@@ -7,21 +7,18 @@
 
 use digest::Digest;
 
-use std::{
-    cmp,
-    io::{self, Read},
-};
+use std::io::{self, Read};
 
-use crate::{multicodec, Error, Multicodec, Result};
+use crate::{multicodec, multicodec::Multicodec, Error, Result};
 
 /// Type adapts several hashing algorithms that can be encoded/decoded
 /// into/from multi-format/multi-hash.
-#[derive(Clone, Eq, PartialEq, PartialOrd)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Multihash {
     inner: Inner,
 }
 
-#[derive(Clone, Eq, PartialEq, PartialOrd)]
+#[derive(Clone, Eq, PartialEq)]
 enum Inner {
     Identity(Multicodec, Identity),
     Sha1(Multicodec, Sha1),
@@ -43,8 +40,8 @@ impl From<Inner> for Multihash {
 }
 
 impl Multihash {
-    /// Create a Multihash instance to generate hash-digest and encode
-    /// them in multi-format.
+    /// Create a Multihash instance, from a multi-codec value for
+    /// generating hash-digest and encode them in multi-format.
     pub fn from_codec(codec: Multicodec) -> Result<Multihash> {
         let code = codec.to_code();
         let inner = match code {
@@ -105,15 +102,27 @@ impl Multihash {
     }
 
     /// Decode a hash-digest that was encoded using multi-format
-    /// specification. Return the Multihash value and remaining byte-slice.
-    /// Use the Multihash value to get the hash-digest and hash-algorithm
-    /// used to generate the digest.
-    pub fn from_slice(buf: &[u8]) -> Result<(Multihash, &[u8])> {
+    /// specification.
+    ///
+    /// *<hash-func-type><digest-length><digest-value>*
+    ///
+    /// - The `type` *<hash-func-type>* is an unsigned variable integer
+    ///   identifying the hash function. There is a default table, and
+    ///   it is configurable. The default table is the [multicodec table].
+    /// - The `length` *<digest-length>* is an unsigned variable integer
+    ///   counting the length of the digest, in bytes.
+    /// - The `value` *<digest-value>* is the hash function digest, with
+    ///   a length of exactly `<digest-length>` bytes.
+    ///
+    /// Return the Multihash value and remaining byte-slice. Caller can
+    /// use [to_codec], [to_digest], [unwrap] methods to get the hash-digest
+    /// and hash-algorithm used to generate the digest.
+    pub fn decode(buf: &[u8]) -> Result<(Multihash, &[u8])> {
         // <hash-func-type><digest-length><digest-value>
         use unsigned_varint::decode;
 
         let (codec, digest, rem) = {
-            let (codec, rem) = Multicodec::from_slice(buf)?;
+            let (codec, rem) = Multicodec::decode(buf)?;
             let (n, rem) = err_at!(BadInput, decode::usize(rem))?;
             if n <= rem.len() {
                 Ok((codec, &rem[..n], &rem[n..]))
@@ -125,47 +134,47 @@ impl Multihash {
         let code = codec.to_code();
         let inner = match code {
             multicodec::IDENTITY => {
-                let hasher = Identity::from_slice(code, digest)?;
+                let hasher = Identity::decode(code, digest)?;
                 Inner::Identity(codec, hasher)
             }
             multicodec::SHA1 => {
-                let hasher = Sha1::from_slice(code, digest)?;
+                let hasher = Sha1::decode(code, digest)?;
                 Inner::Sha1(codec, hasher)
             }
             multicodec::SHA2_256 | multicodec::SHA2_512 | multicodec::DBL_SHA2_256 => {
-                let hasher = Sha2::from_slice(code, digest)?;
+                let hasher = Sha2::decode(code, digest)?;
                 Inner::Sha2(codec, hasher)
             }
             multicodec::SHA3_512..=multicodec::KECCAK_512 => {
-                let hasher = Sha3::from_slice(code, digest)?;
+                let hasher = Sha3::decode(code, digest)?;
                 Inner::Sha3(codec, hasher)
             }
             multicodec::BLAKE3 => {
-                let hasher = Blake3::from_slice(code, digest)?;
+                let hasher = Blake3::decode(code, digest)?;
                 Inner::Blake3(codec, hasher)
             }
             multicodec::BLAKE2B_8..=multicodec::BLAKE2B_512 => {
-                let hasher = Blake2b::from_slice(code, digest)?;
+                let hasher = Blake2b::decode(code, digest)?;
                 Inner::Blake2b(codec, hasher)
             }
             multicodec::BLAKE2S_8..=multicodec::BLAKE2S_256 => {
-                let hasher = Blake2s::from_slice(code, digest)?;
+                let hasher = Blake2s::decode(code, digest)?;
                 Inner::Blake2s(codec, hasher)
             }
             multicodec::MD4 => {
-                let hasher = Md4::from_slice(code, digest)?;
+                let hasher = Md4::decode(code, digest)?;
                 Inner::Md4(codec, hasher)
             }
             multicodec::MD5 => {
-                let hasher = Md5::from_slice(code, digest)?;
+                let hasher = Md5::decode(code, digest)?;
                 Inner::Md5(codec, hasher)
             }
             multicodec::SKEIN256_8..=multicodec::SKEIN1024_1024 => {
-                let hasher = Skein::from_slice(code, digest)?;
+                let hasher = Skein::decode(code, digest)?;
                 Inner::Skein(codec, hasher)
             }
             multicodec::RIPEMD_128..=multicodec::RIPEMD_320 => {
-                let hasher = RipeMd::from_slice(code, digest)?;
+                let hasher = RipeMd::decode(code, digest)?;
                 Inner::RipeMd(codec, hasher)
             }
             codec => err_at!(NotImplemented, msg: format!("codec {}", codec))?,
@@ -181,6 +190,7 @@ impl Multihash {
     /// ```ignore
     ///     let hasher = Multihash::from_code(multicodec::SHA2_256);
     ///     hasher.write("hello world".as_bytes());
+    ///     hasher.write("ciao".as_bytes());
     ///     (codec, digest) = hasher.finish().unwrap();
     /// ```
     ///
@@ -241,17 +251,19 @@ impl Multihash {
         Ok(self)
     }
 
-    /// Encode hash-digest and associated headers into
-    /// multi-format/multi-hash specification.
+    /// Encode hash-digest and associated headers as per multi-hash
+    /// specification.
+    ///
+    /// `<hash-func-type><digest-length><digest-value>`
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut buf = Vec::default();
         self.encode_with(&mut buf)?;
         Ok(buf)
     }
 
-    /// Similar to encode() but avoid allocation by using supplied buffer
-    /// `buf`.
-    pub fn encode_with<W>(&self, buf: &mut W) -> Result<usize>
+    // Similar to encode() but avoid allocation by using supplied buffer
+    // `buf`.
+    fn encode_with<W>(&self, buf: &mut W) -> Result<usize>
     where
         W: io::Write,
     {
@@ -270,7 +282,11 @@ impl Multihash {
             Inner::Skein(_, hasher) => hasher.as_digest()?,
             Inner::RipeMd(_, hasher) => hasher.as_digest()?,
         };
-        let n = self.to_codec().encode_with(buf)?;
+        let n = {
+            let out = self.to_codec().encode()?;
+            err_at!(IOError, buf.write(&out))?;
+            out.len()
+        };
         let m = {
             #[cfg(not(target_arch = "wasm32"))]
             let mut scratch: [u8; 10] = Default::default();
@@ -300,6 +316,25 @@ impl Multihash {
             Inner::Skein(codec, _) => codec.clone(),
             Inner::RipeMd(codec, _) => codec.clone(),
         }
+    }
+
+    /// Unwrap the underlying codec and hash digest. Panic if digest
+    /// is not generated or decoded.
+    pub fn to_digest(self) -> Vec<u8> {
+        let digest = match &self.inner {
+            Inner::Identity(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Sha1(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Sha2(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Sha3(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Blake3(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Blake2b(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Blake2s(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Md4(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Md5(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::Skein(_, hasher) => hasher.as_digest().unwrap(),
+            Inner::RipeMd(_, hasher) => hasher.as_digest().unwrap(),
+        };
+        digest.to_vec()
     }
 
     /// Unwrap the underlying codec and hash digest. Panic if digest
@@ -348,12 +383,6 @@ impl PartialEq for Identity {
     }
 }
 
-impl PartialOrd for Identity {
-    fn partial_cmp(&self, other: &Identity) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
-    }
-}
-
 impl Identity {
     fn from_code(_code: u128) -> Result<Identity> {
         Ok(Identity {
@@ -362,7 +391,7 @@ impl Identity {
         })
     }
 
-    fn from_slice(_code: u128, digest: &[u8]) -> Result<Identity> {
+    fn decode(_code: u128, digest: &[u8]) -> Result<Identity> {
         Ok(Identity {
             buf: Vec::default(),
             digest: Some(digest.to_vec()),
@@ -412,12 +441,6 @@ impl PartialEq for Sha1 {
     }
 }
 
-impl PartialOrd for Sha1 {
-    fn partial_cmp(&self, other: &Sha1) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
-    }
-}
-
 impl Sha1 {
     fn from_code(_code: u128) -> Result<Sha1> {
         Ok(Sha1 {
@@ -426,7 +449,7 @@ impl Sha1 {
         })
     }
 
-    fn from_slice(_code: u128, digest: &[u8]) -> Result<Sha1> {
+    fn decode(_code: u128, digest: &[u8]) -> Result<Sha1> {
         Ok(Sha1 {
             hasher: sha1::Sha1::new(),
             digest: Some(digest.to_vec()),
@@ -490,18 +513,6 @@ impl PartialEq for Sha2 {
     }
 }
 
-impl PartialOrd for Sha2 {
-    fn partial_cmp(&self, other: &Sha2) -> Option<cmp::Ordering> {
-        use Sha2::*;
-
-        match (self, other) {
-            (Algo32 { digest, .. }, Algo32 { digest: other, .. }) => digest.partial_cmp(other),
-            (Algo64 { digest, .. }, Algo64 { digest: other, .. }) => digest.partial_cmp(other),
-            (_, _) => None,
-        }
-    }
-}
-
 impl Sha2 {
     fn from_code(code: u128) -> Result<Sha2> {
         let digest = None;
@@ -526,7 +537,7 @@ impl Sha2 {
         Ok(val)
     }
 
-    fn from_slice(code: u128, digest: &[u8]) -> Result<Sha2> {
+    fn decode(code: u128, digest: &[u8]) -> Result<Sha2> {
         let val = match code {
             multicodec::SHA2_256 => Sha2::Algo32 {
                 hasher: sha2::Sha256::new(),
@@ -698,34 +709,6 @@ impl PartialEq for Sha3 {
     }
 }
 
-impl PartialOrd for Sha3 {
-    fn partial_cmp(&self, other: &Sha3) -> Option<cmp::Ordering> {
-        use Sha3::*;
-
-        match (self, other) {
-            (Sha3_224 { digest, .. }, Sha3_224 { digest: other, .. }) => digest.partial_cmp(other),
-            (Sha3_256 { digest, .. }, Sha3_256 { digest: other, .. }) => digest.partial_cmp(other),
-            (Sha3_384 { digest, .. }, Sha3_384 { digest: other, .. }) => digest.partial_cmp(other),
-            (Sha3_512 { digest, .. }, Sha3_512 { digest: other, .. }) => digest.partial_cmp(other),
-            (Shake128 { digest, .. }, Shake128 { digest: other, .. }) => digest.partial_cmp(other),
-            (Shake256 { digest, .. }, Shake256 { digest: other, .. }) => digest.partial_cmp(other),
-            (Keccak224 { digest, .. }, Keccak224 { digest: other, .. }) => {
-                digest.partial_cmp(other)
-            }
-            (Keccak256 { digest, .. }, Keccak256 { digest: other, .. }) => {
-                digest.partial_cmp(other)
-            }
-            (Keccak384 { digest, .. }, Keccak384 { digest: other, .. }) => {
-                digest.partial_cmp(other)
-            }
-            (Keccak512 { digest, .. }, Keccak512 { digest: other, .. }) => {
-                digest.partial_cmp(other)
-            }
-            (_, _) => None,
-        }
-    }
-}
-
 impl Sha3 {
     fn from_code(code: u128) -> Result<Sha3> {
         let digest = None;
@@ -775,7 +758,7 @@ impl Sha3 {
         Ok(val)
     }
 
-    fn from_slice(code: u128, digest: &[u8]) -> Result<Sha3> {
+    fn decode(code: u128, digest: &[u8]) -> Result<Sha3> {
         let val = match code {
             multicodec::SHA3_512 => Sha3::Sha3_512 {
                 hasher: sha3::Sha3_512::new(),
@@ -1042,12 +1025,6 @@ impl PartialEq for Blake3 {
     }
 }
 
-impl PartialOrd for Blake3 {
-    fn partial_cmp(&self, other: &Blake3) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
-    }
-}
-
 impl Blake3 {
     fn from_code(_code: u128) -> Result<Blake3> {
         Ok(Blake3 {
@@ -1056,7 +1033,7 @@ impl Blake3 {
         })
     }
 
-    fn from_slice(_code: u128, digest: &[u8]) -> Result<Blake3> {
+    fn decode(_code: u128, digest: &[u8]) -> Result<Blake3> {
         Ok(Blake3 {
             hasher: blake3::Hasher::new(),
             digest: Some(digest.to_vec()),
@@ -1107,12 +1084,6 @@ impl Eq for Blake2b {}
 impl PartialEq for Blake2b {
     fn eq(&self, other: &Blake2b) -> bool {
         self.digest == other.digest
-    }
-}
-
-impl PartialOrd for Blake2b {
-    fn partial_cmp(&self, other: &Blake2b) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
     }
 }
 
@@ -1200,7 +1171,7 @@ impl Blake2b {
         })
     }
 
-    fn from_slice(code: u128, digest: &[u8]) -> Result<Blake2b> {
+    fn decode(code: u128, digest: &[u8]) -> Result<Blake2b> {
         use blake2b_simd::Params;
 
         let mut hasher = Params::new();
@@ -1263,12 +1234,6 @@ impl PartialEq for Blake2s {
     }
 }
 
-impl PartialOrd for Blake2s {
-    fn partial_cmp(&self, other: &Blake2s) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
-    }
-}
-
 impl Blake2s {
     fn to_digest_bits(code: u128) -> Result<usize> {
         let len = match code {
@@ -1321,7 +1286,7 @@ impl Blake2s {
         })
     }
 
-    fn from_slice(code: u128, digest: &[u8]) -> Result<Blake2s> {
+    fn decode(code: u128, digest: &[u8]) -> Result<Blake2s> {
         use blake2s_simd::Params;
 
         let mut hasher = Params::new();
@@ -1383,12 +1348,6 @@ impl PartialEq for Md4 {
     }
 }
 
-impl PartialOrd for Md4 {
-    fn partial_cmp(&self, other: &Md4) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
-    }
-}
-
 impl Md4 {
     fn from_code(_code: u128) -> Result<Md4> {
         Ok(Md4 {
@@ -1397,7 +1356,7 @@ impl Md4 {
         })
     }
 
-    fn from_slice(_code: u128, buf: &[u8]) -> Result<Md4> {
+    fn decode(_code: u128, buf: &[u8]) -> Result<Md4> {
         Ok(Md4 {
             hasher: md4::Md4::new(),
             digest: Some(buf.to_vec()),
@@ -1447,12 +1406,6 @@ impl PartialEq for Md5 {
     }
 }
 
-impl PartialOrd for Md5 {
-    fn partial_cmp(&self, other: &Md5) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
-    }
-}
-
 impl Md5 {
     fn from_code(_code: u128) -> Result<Md5> {
         Ok(Md5 {
@@ -1461,7 +1414,7 @@ impl Md5 {
         })
     }
 
-    fn from_slice(_code: u128, buf: &[u8]) -> Result<Md5> {
+    fn decode(_code: u128, buf: &[u8]) -> Result<Md5> {
         Ok(Md5 {
             buf: Vec::default(),
             digest: Some(buf.to_vec()),
@@ -1515,12 +1468,6 @@ impl PartialEq for Skein {
     }
 }
 
-impl PartialOrd for Skein {
-    fn partial_cmp(&self, other: &Skein) -> Option<cmp::Ordering> {
-        self.digest.partial_cmp(&other.digest)
-    }
-}
-
 macro_rules! skein_digest {
     ($type:ident, $dtype:ty, $data:expr) => {{
         use skein_hash::Digest;
@@ -1540,7 +1487,7 @@ impl Skein {
         })
     }
 
-    fn from_slice(code: u128, buf: &[u8]) -> Result<Skein> {
+    fn decode(code: u128, buf: &[u8]) -> Result<Skein> {
         Ok(Skein {
             code,
             buf: Vec::default(),
@@ -1832,18 +1779,6 @@ impl PartialEq for RipeMd {
     }
 }
 
-impl PartialOrd for RipeMd {
-    fn partial_cmp(&self, other: &RipeMd) -> Option<cmp::Ordering> {
-        use RipeMd::*;
-
-        match (self, other) {
-            (Algo160 { digest, .. }, Algo160 { digest: other, .. }) => digest.partial_cmp(other),
-            (Algo320 { digest, .. }, Algo320 { digest: other, .. }) => digest.partial_cmp(other),
-            _ => None,
-        }
-    }
-}
-
 impl RipeMd {
     fn from_code(code: u128) -> Result<RipeMd> {
         let val = match code {
@@ -1860,7 +1795,7 @@ impl RipeMd {
         Ok(val)
     }
 
-    fn from_slice(code: u128, buf: &[u8]) -> Result<RipeMd> {
+    fn decode(code: u128, buf: &[u8]) -> Result<RipeMd> {
         let digest = Some(buf.to_vec());
         let val = match code {
             multicodec::RIPEMD_160 => RipeMd::Algo160 {

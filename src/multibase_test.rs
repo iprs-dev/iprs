@@ -62,8 +62,8 @@ fn test_base_formats() {
             _ => (),
         }
 
-        let mb = Multibase::from_char(row.1).unwrap();
-        let out = mb.encode("hello world".as_bytes()).unwrap();
+        let mb = Multibase::from_char(row.1, "hello world".as_bytes()).unwrap();
+        let out = mb.encode().unwrap();
         println!("{:?} {}", row.1, from_utf8(&out).unwrap());
 
         let data = Multibase::decode(&out).unwrap().to_bytes().unwrap();

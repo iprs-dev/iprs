@@ -6,7 +6,7 @@ use std::{error, fmt, result};
 #[macro_use]
 mod util;
 pub mod identity;
-pub mod multiaddr;
+// pub mod multiaddr;
 pub mod multibase;
 pub mod multicodec;
 pub mod multiformat;
@@ -16,11 +16,6 @@ pub mod peer_id;
 mod keys_proto {
     include!(concat!(env!("OUT_DIR"), "/keys_proto.rs"));
 }
-
-pub use crate::multibase::Multibase;
-pub use multicodec::Multicodec;
-pub use multiformat::Multiformat;
-pub use multihash::Multihash;
 
 /// Type alias for Result return type, used by this package.
 pub type Result<T> = result::Result<T, Error>;

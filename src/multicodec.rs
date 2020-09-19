@@ -9,7 +9,7 @@
 
 use lazy_static::lazy_static;
 
-use std::{convert::TryFrom, fmt, io, result};
+use std::{fmt, result};
 
 use crate::{Error, Result};
 
@@ -17,7 +17,7 @@ use crate::{Error, Result};
 ///
 /// [multicodec]: https://github.com/multiformats/multicodec
 /// [unsigned-varint]: https://github.com/multiformats/unsigned-varint
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct Multicodec {
     code: u128,
 }
@@ -36,31 +36,7 @@ impl fmt::Display for Multicodec {
 
 impl From<u128> for Multicodec {
     fn from(code: u128) -> Self {
-        Multicodec { code: code.into() }
-    }
-}
-
-impl From<u64> for Multicodec {
-    fn from(code: u64) -> Self {
-        Multicodec { code: code.into() }
-    }
-}
-
-impl From<u32> for Multicodec {
-    fn from(code: u32) -> Self {
-        Multicodec { code: code.into() }
-    }
-}
-
-impl From<u16> for Multicodec {
-    fn from(code: u16) -> Self {
-        Multicodec { code: code.into() }
-    }
-}
-
-impl From<u8> for Multicodec {
-    fn from(code: u8) -> Self {
-        Multicodec { code: code.into() }
+        Multicodec { code }
     }
 }
 
@@ -76,57 +52,31 @@ impl<'a> From<&'a Codepoint> for Multicodec {
     }
 }
 
-impl<'a> TryFrom<&'a str> for Multicodec {
-    type Error = Error;
-
-    fn try_from(name: &'a str) -> Result<Multicodec> {
-        for entry in TABLE.iter() {
-            if entry.name == name {
-                return Ok(Multicodec { code: entry.code });
-            }
-        }
-        err_at!(Err(Error::BadCodec(
-            "".to_string(),
-            format!("multicode-name {}", name)
-        )))
-    }
-}
-
 impl Multicodec {
-    /// Create a new Multicodec from u128 code value.
+    /// Create a new Multicodec from u128 code value. Returned value is useful
+    /// for encoding multi-codec unsigned_varint integer value.
     pub fn from_code(code: u128) -> Result<Multicodec> {
-        Ok(Multicodec { code })
+        Ok(code.into())
     }
 
-    /// Convert incoming stream of bytes into multicodec value. Return
-    /// remaining unparsed slice.
+    /// Read the prefix bytes for encoded multi-codec unsigned_varint integer
+    /// value and return remaining unparsed slice.
     ///
-    /// Return [Error::Invalid] if `buf's` content can't be recognised.
-    pub fn from_slice(buf: &[u8]) -> Result<(Multicodec, &[u8])> {
+    /// Return [Error] if `buf's` content can't be recognised.
+    pub fn decode(buf: &[u8]) -> Result<(Multicodec, &[u8])> {
         let (code, rem) = err_at!(Invalid, unsigned_varint::decode::u128(buf))?;
         Ok((Multicodec { code }, rem))
     }
 
-    /// Encode Multicodec to unsigned-varint bytes.
+    /// Encode multi-codec unsigned_varint integer.
     pub fn encode(&self) -> Result<Vec<u8>> {
         let mut buf: [u8; 19] = Default::default();
-        let slice = unsigned_varint::encode::u128(self.code, &mut buf);
-        Ok(slice.to_vec())
+        let data = unsigned_varint::encode::u128(self.code, &mut buf).to_vec();
+
+        Ok(data)
     }
 
-    /// Similar to encode() but avoid allocation by using supplied buffer
-    /// `buf`.
-    pub fn encode_with<W>(&self, buf: &mut W) -> Result<usize>
-    where
-        W: io::Write,
-    {
-        let mut scratch: [u8; 19] = Default::default();
-        let slice = unsigned_varint::encode::u128(self.code, &mut scratch);
-        err_at!(IOError, buf.write(&slice))?;
-        Ok(slice.len())
-    }
-
-    /// Return the underling code-value.
+    /// Return the underlying code-value.
     pub fn to_code(&self) -> u128 {
         self.code
     }
@@ -343,6 +293,8 @@ code_points![
     (ZCASH_BLOCK, 0xc0, "zcash-block", "ipld"),
     /// _ipld_
     (ZCASH_TX, 0xc1, "zcash-tx", "ipld"),
+    /// _namespace_, Ceramic Document Id
+    (DOCID, 0xce, "docid", "namespace"),
     /// _ipld_
     (STELLAR_BLOCK, 0xd0, "stellar-block", "ipld"),
     /// _ipld_
@@ -1163,13 +1115,21 @@ code_points![
 ];
 
 /// Return a list of code-points tagged as "multihash".
-pub fn multihash_codes() -> Vec<Codepoint> {
-    TABLE_MULTIHASH.clone()
+pub fn multihash_codes() -> Vec<u128> {
+    TABLE_MULTIHASH
+        .clone()
+        .into_iter()
+        .map(|cp| cp.code)
+        .collect()
 }
 
 /// Return a list of code-points tagged as "multibase".
-pub fn multibase_codes() -> Vec<Codepoint> {
-    TABLE_MULTIBASE.clone()
+pub fn multibase_codes() -> Vec<u128> {
+    TABLE_MULTIBASE
+        .clone()
+        .into_iter()
+        .map(|cp| cp.code)
+        .collect()
 }
 
 #[cfg(test)]
