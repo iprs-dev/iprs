@@ -18,7 +18,7 @@
 // FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-//! A node's network identity, its key is its identity.
+//! A node's network identity, its public-key is its identity.
 
 pub mod ed25519;
 #[cfg(not(target_arch = "wasm32"))]
