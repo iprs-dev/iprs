@@ -1868,3 +1868,7 @@ impl RipeMd {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "multihash_test.rs"]
+mod multihash_test;

@@ -21,15 +21,17 @@ const MAX_INLINE_KEY_LENGTH: usize = 42;
 ///
 /// PublicKey to PeerId:
 ///
-/// a. Encode the public key as described in the keys section.
-/// b. If the length of the serialized bytes is less than or equal to 42,
-///    compute the "identity" multihash of the serialized bytes. In other
-///    words, no hashing is performed, but the multihash format is still
-///    followed. The idea here is that if the serialized byte array is
-///    short enough, we can fit it in a multihash verbatim without having
-///    to condense it using a hash function.
-/// c. If the length is greater than 42, then hash it using it using the
-///    SHA256 multihash.
+/// * Encode the public key as described in the [keys section].
+/// * If the length of the serialized bytes is less than or equal to 42,
+///   compute the "identity" multihash of the serialized bytes. In other
+///   words, no hashing is performed, but the multihash format is still
+///   followed. The idea here is that if the serialized byte array is
+///   short enough, we can fit it in a multihash verbatim without having
+///   to condense it using a hash function.
+/// * If the length is greater than 42, then hash it using it using the
+///   SHA256 multihash.
+///
+/// [keys section]: https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md#keys
 #[derive(Clone, Eq)]
 pub struct PeerId {
     mh: Multihash,
@@ -76,46 +78,38 @@ impl PeerId {
     pub fn from_public_key(key: PublicKey) -> Result<PeerId> {
         let enc_buf = key.into_protobuf_encoding()?;
 
-        let code = match enc_buf.len() <= MAX_INLINE_KEY_LENGTH {
-            true => multicodec::IDENTITY,
-            false => multicodec::SHA2_256,
+        let codec: Multicodec = match enc_buf.len() <= MAX_INLINE_KEY_LENGTH {
+            true => multicodec::IDENTITY.into(),
+            false => multicodec::SHA2_256.into(),
         };
 
-        let mut mh = Multihash::from_codec(Multicodec::from_code(code)?)?;
+        let mut mh = Multihash::from_codec(codec)?;
         mh.write(&enc_buf)?.finish()?;
 
         Ok(PeerId { mh })
-    }
-
-    /// Checks whether `data` is a valid `PeerId`. If so, returns the
-    /// `PeerId`. If not, returns back the data as an error.
-    pub fn from_slice(data: &[u8]) -> Result<(PeerId, &[u8])> {
-        let (mh, bytes) = Multihash::decode(data)?;
-        Ok((PeerId { mh }, bytes))
-    }
-
-    /// Tries to turn a `Multihash` into a `PeerId`.
-    ///
-    /// If the multihash does not use a valid hashing algorithm for peer IDs,
-    /// or the hash value does not satisfy the constraints for a hashed
-    /// peer ID, it is returned as an `Err`.
-    pub fn from_multihash(mh: Multihash) -> Result<PeerId> {
-        Ok(PeerId { mh })
-    }
-
-    pub fn from_base58(s: &str) -> Result<Self> {
-        let bytes = err_at!(DecodeError, bs58::decode(s).into_vec())?;
-        let (peer_id, _) = PeerId::from_slice(&bytes)?;
-        Ok(peer_id)
     }
 
     /// Generates a random peer ID from a cryptographically secure PRNG.
     ///
     /// This is useful for randomly walking on a DHT, or for testing purposes.
     pub fn generate() -> Result<PeerId> {
-        let bytes = rand::thread_rng().gen::<[u8; 32]>();
+        let (bytes, codec) = match rand::thread_rng().gen::<bool>() {
+            true => {
+                let codec: Multicodec = multicodec::IDENTITY.into();
+                (rand::thread_rng().gen::<[u8; 32]>().to_vec(), codec)
+            }
+            false => {
+                let codec: Multicodec = multicodec::SHA2_256.into();
+                let bytes = {
+                    let mut data = vec![];
+                    data.extend(&rand::thread_rng().gen::<[u8; 32]>());
+                    data.extend(&rand::thread_rng().gen::<[u8; 32]>());
+                    data
+                };
+                (bytes, codec)
+            }
+        };
         let mh = {
-            let codec = Multicodec::from_code(multicodec::IDENTITY)?;
             let mut mh = Multihash::from_codec(codec)?;
             mh.write(&bytes)?.finish()?;
             mh
@@ -123,18 +117,32 @@ impl PeerId {
         Ok(PeerId { mh })
     }
 
-    /// Returns a raw bytes representation of this `PeerId`.
+    /// Encode PeerId into raw bytes representation.
     ///
     /// **NOTE:** This byte representation is not necessarily consistent with
     /// equality of peer IDs. That is, two peer IDs may be considered equal
     /// while having a different byte representation as per `into_bytes`.
-    pub fn into_bytes(self) -> Result<Vec<u8>> {
+    pub fn encode(self) -> Result<Vec<u8>> {
         self.mh.encode()
+    }
+
+    /// Decode whether `data` is a valid `PeerId`. If so, returns the
+    /// `PeerId`, else error.
+    pub fn decode(buf: &[u8]) -> Result<(PeerId, &[u8])> {
+        let (mh, rem) = Multihash::decode(buf)?;
+        Ok((PeerId { mh }, rem))
     }
 
     /// Returns a base-58 encoded string of this `PeerId`.
     pub fn to_base58(&self) -> Result<String> {
         Ok(bs58::encode(self.mh.encode()?).into_string())
+    }
+
+    /// Convert BASE58 string to PeerId.
+    pub fn from_base58(s: &str) -> Result<Self> {
+        let bytes = err_at!(DecodeError, bs58::decode(s).into_vec())?;
+        let (peer_id, _) = PeerId::decode(&bytes)?;
+        Ok(peer_id)
     }
 
     /// Checks whether the public key passed as parameter matches the

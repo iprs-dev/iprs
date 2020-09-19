@@ -35,7 +35,7 @@ impl Multiformat {
         let data = match self {
             Multibase(codec, mb) => {
                 let mut out = codec.encode()?;
-                out.extend(&mb.encode()?);
+                out.extend(mb.encode()?.as_bytes());
                 out
             }
             Multihash(_codec, mh) => {
@@ -48,10 +48,15 @@ impl Multiformat {
 
     /// Decode input byte-stream into one of multi-format types.
     pub fn decode(buf: &[u8]) -> Result<(Multiformat, &[u8])> {
+        use std::str::from_utf8;
+
         let (codec, rem) = Multicodec::decode(buf)?;
         let (val, rem) = match codec.to_code() {
             multicodec::MULTIBASE => {
-                let val = Multibase::decode(rem)?;
+                let val = {
+                    let text = err_at!(BadInput, from_utf8(rem))?;
+                    Multibase::decode(text)?
+                };
                 (Multiformat::Multibase(codec, val), &buf[buf.len()..])
             }
             _ => {

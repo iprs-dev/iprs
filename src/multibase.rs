@@ -4,8 +4,6 @@
 
 use multibase;
 
-use std::io;
-
 use crate::{Error, Result};
 
 /// Type to encode/decode bytes into/from multi-base formats.
@@ -49,45 +47,25 @@ impl Multibase {
     /// Encode input binary-data using this base format, encoded stream of
     /// bytes shall have the <base-prefix> followed by the actual
     /// base-representation of the `input`.
-    pub fn encode(&self) -> Result<Vec<u8>> {
-        let out = match &self.data {
-            Some(data) => {
-                let mut buf = Vec::default();
-                self.encode_with(data, &mut buf)?;
-                buf
-            }
-            None => vec![],
+    pub fn encode(&self) -> Result<String> {
+        let text = match &self.data {
+            Some(data) => multibase::encode(self.base.clone(), data),
+            None => "".to_string(),
         };
-        Ok(out)
+        Ok(text)
     }
 
     /// Decode <base-prefix> followed by the base-representation, into
     /// raw-data. Caller can use the returned value to get the base
     /// format and the original raw-data.
-    pub fn decode(buf: &[u8]) -> Result<Multibase> {
-        use std::str::from_utf8;
-
-        let text = err_at!(BadInput, from_utf8(buf))?;
+    pub fn decode(text: &str) -> Result<Multibase> {
         let (base, data) = err_at!(BadInput, multibase::decode(text))?;
-
         let val = Multibase {
             base,
             data: Some(data),
         };
 
         Ok(val)
-    }
-
-    // Same as encode but avoids memory allocation by using the supplied
-    // buffer `buf`.
-    fn encode_with<I, W>(&self, input: I, buf: &mut W) -> Result<usize>
-    where
-        I: AsRef<[u8]>,
-        W: io::Write,
-    {
-        let text = multibase::encode(self.base.clone(), input);
-        err_at!(IOError, buf.write(text.as_bytes()))?;
-        Ok(text.len())
     }
 
     /// Return the `Base` format type.

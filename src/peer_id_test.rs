@@ -12,15 +12,15 @@ fn peer_id_is_public_key() {
 }
 
 #[test]
-fn peer_id_into_bytes_then_from_bytes() {
+fn peer_id_encode_decode() {
     let peer_id = identity::Keypair::generate_ed25519()
         .unwrap()
         .to_public_key()
         .into_peer_id()
         .unwrap();
 
-    let bytes = peer_id.clone().into_bytes().unwrap();
-    let (second, _) = PeerId::from_slice(&bytes).unwrap();
+    let bytes = peer_id.clone().encode().unwrap();
+    let (second, _) = PeerId::decode(&bytes).unwrap();
     assert_eq!(peer_id, second);
 }
 
@@ -56,7 +56,10 @@ fn from_bs32() {
     use crate::multibase::Multibase;
 
     let data = "bafzbeie5745rpv2m6tjyuugywy4d5ewrqgqqhfnf445he3omzpjbx5xqxe";
-    let mb = Multibase::decode(data.as_bytes()).unwrap();
+    let mb = Multibase::decode(data).unwrap();
+    let data = mb.to_bytes().unwrap();
+    let (codec, _) = Multicodec::decode(&data).unwrap();
+    println!("{}", codec);
 }
 
 //#[test]
