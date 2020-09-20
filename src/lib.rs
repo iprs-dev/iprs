@@ -10,7 +10,7 @@ pub mod identity;
 pub mod cid;
 pub mod multibase;
 pub mod multicodec;
-pub mod multiformat;
+// mod multiformat;
 pub mod multihash;
 pub mod peer_id;
 
