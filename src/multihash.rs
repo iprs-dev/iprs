@@ -7,7 +7,11 @@
 
 use digest::Digest;
 
-use std::io::{self, Read};
+use std::{
+    fmt,
+    io::{self, Read},
+    result,
+};
 
 use crate::{multicodec, multicodec::Multicodec, Error, Result};
 
@@ -31,6 +35,35 @@ enum Inner {
     Md5(Multicodec, Md5),
     Skein(Multicodec, Skein),
     RipeMd(Multicodec, RipeMd),
+}
+
+impl fmt::Display for Multihash {
+    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        use std::iter::FromIterator;
+        use Inner::*;
+
+        let empty = vec![];
+        let (codec, digest) = match &self.inner {
+            Identity(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Sha1(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Sha2(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Sha3(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Blake2b(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Blake2s(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Blake3(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Md4(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Md5(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            Skein(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+            RipeMd(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+        };
+        let text = {
+            let text = multibase::encode(multibase::Base::Base16Lower, &digest);
+            let mut chars = text.chars();
+            chars.next();
+            String::from_iter(chars)
+        };
+        write!(f, "{}-{}-{}", codec, digest.len() * 8, text)
+    }
 }
 
 impl From<Inner> for Multihash {

@@ -28,12 +28,6 @@ impl fmt::Debug for Multicodec {
     }
 }
 
-impl fmt::Display for Multicodec {
-    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
-        write!(f, "{}", self.code)
-    }
-}
-
 impl From<u128> for Multicodec {
     fn from(code: u128) -> Self {
         Multicodec { code }
@@ -102,6 +96,16 @@ macro_rules! code_points {
             #[$doc]
             pub const $label: u128 = $code;
         )*
+
+        impl fmt::Display for Multicodec {
+            fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+                let name = match self.code {
+                    $( $code => $name, )*
+                    _ => "@#bad-code#@",
+                };
+                write!(f, "{}", name)
+            }
+        }
 
         lazy_static! {
             /// Default codec table. Refer [table] for details.

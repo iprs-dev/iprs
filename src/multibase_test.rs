@@ -64,10 +64,35 @@ fn test_base_formats() {
 
         let mb = Multibase::from_char(row.1, "hello world".as_bytes()).unwrap();
         let out = mb.encode().unwrap();
-        println!("{:?} {}", row.1, out);
+        println!(".... BASE {:?} encoded {}", row.1, out);
 
         let data = Multibase::decode(&out).unwrap().to_bytes().unwrap();
         let text = from_utf8(&data).unwrap();
         assert_eq!(text, "hello world");
     }
+}
+
+#[test]
+fn test_bs58_multibase() {
+    use crate::{multicodec, multihash::Multihash};
+
+    let mut mh = Multihash::from_codec(multicodec::SHA2_256.into()).unwrap();
+    mh.write("hello world".as_bytes())
+        .unwrap()
+        .finish()
+        .unwrap();
+    let data = mh.encode().unwrap();
+
+    let mb = Multibase::from_char('z', &data).unwrap();
+    let out1 = mb.encode().unwrap();
+
+    let out2 = bs58::encode(&data).into_string();
+    let mut out2 = out2.as_bytes().to_vec();
+    out2.insert(0, ' ' as u8);
+    let out2 = std::str::from_utf8(&out2).unwrap();
+
+    println!(".... BS58 encoded      {}", out1);
+    println!(".... MULTIBASE encoded {}", out2);
+
+    assert_eq!(&out1.as_bytes()[1..], &out2.as_bytes()[1..])
 }
