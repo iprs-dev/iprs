@@ -7,6 +7,7 @@ use std::{error, fmt, result};
 mod util;
 pub mod identity;
 // pub mod multiaddr;
+pub mod cid;
 pub mod multibase;
 pub mod multicodec;
 pub mod multiformat;

@@ -351,9 +351,10 @@ impl Multihash {
         }
     }
 
-    /// Unwrap the underlying codec and hash digest. Panic if digest
-    /// is not generated or decoded.
-    pub fn to_digest(self) -> Vec<u8> {
+    /// Return the underlying hash digest.
+    ///
+    /// *Panic if digest is not generated or decoded*.
+    pub fn to_digest(&self) -> Vec<u8> {
         let digest = match &self.inner {
             Inner::Identity(_, hasher) => hasher.as_digest().unwrap(),
             Inner::Sha1(_, hasher) => hasher.as_digest().unwrap(),
