@@ -1,11 +1,11 @@
 use super::*;
 
-const RSA_KEY: &'static [u8] = include_bytes!("test/rsa-2048.pk8");
+const RSA_KEY: &'static [u8] = include_bytes!("testdata/rsa-2048.pk8");
 
 #[test]
 fn rsa_api() {
     let mut key = RSA_KEY.to_vec();
-    println!("RSA Keypair len : {}", key.len());
+    println!(".... RSA Keypair len : {}", key.len());
 
     let kp = Keypair::from_rsa_pkcs8(&mut key).unwrap();
 
@@ -24,7 +24,7 @@ fn ed25519_api() {
         _ => unreachable!(),
     };
 
-    println!("ED25519 Keypair len : {}", data.len());
+    println!(".... ED25519 Keypair len : {}", data.len());
 
     let kp = Keypair::from_ed25519_bytes(&mut data).unwrap();
 

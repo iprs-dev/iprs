@@ -31,12 +31,12 @@ fn peer_id_to_base58_then_back1() {
         .to_public_key()
         .into_peer_id()
         .unwrap();
-    println!("PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
+    println!(".... PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
     let second: PeerId = PeerId::from_base58(&peer_id.to_base58().unwrap()).unwrap();
     assert_eq!(peer_id, second);
 }
 
-const RSA_KEY: &'static [u8] = include_bytes!("identity/test/rsa-2048.pk8");
+const RSA_KEY: &'static [u8] = include_bytes!("identity/testdata/rsa-2048.pk8");
 
 #[test]
 fn peer_id_to_base58_then_back2() {
@@ -46,7 +46,7 @@ fn peer_id_to_base58_then_back2() {
         .to_public_key()
         .into_peer_id()
         .unwrap();
-    println!("PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
+    println!(".... PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
     let second: PeerId = PeerId::from_base58(&peer_id.to_base58().unwrap()).unwrap();
     assert_eq!(peer_id, second);
 }
@@ -59,7 +59,7 @@ fn from_bs32() {
     let mb = Multibase::decode(data).unwrap();
     let data = mb.to_bytes().unwrap();
     let (codec, _) = Multicodec::decode(&data).unwrap();
-    println!("{}", codec);
+    println!(".... from_bs32 {}", codec);
 }
 
 //#[test]

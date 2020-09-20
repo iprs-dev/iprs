@@ -239,7 +239,7 @@ mod tests {
     #[test]
     fn print_keys_proto_path() {
         let file_path = concat!(env!("OUT_DIR"), "/keys_proto.rs");
-        println!("keys_proto file: {}", file_path);
+        println!(".... keys_proto file: {}", file_path);
     }
 }
 
