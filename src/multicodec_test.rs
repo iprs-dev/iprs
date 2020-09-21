@@ -1,3 +1,5 @@
+// Copyright (c) 2020 R Pratap Chakravarthy
+
 use parse_int;
 use reqwest::blocking::get;
 

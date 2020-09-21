@@ -1,3 +1,5 @@
+// Copyright (c) 2020 R Pratap Chakravarthy
+
 use std::{convert::TryInto, net};
 
 use crate::multicodec::{self, Multicodec};

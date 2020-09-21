@@ -1,3 +1,5 @@
+// Copyright (c) 2020 R Pratap Chakravarthy
+
 /// Short form to compose Error values.
 ///
 /// Here are few possible ways:
