@@ -1,10 +1,12 @@
 use bs58;
+use multibase::Base;
 use rand::Rng;
 
 use std::{fmt, hash};
 
 use crate::{
     identity::PublicKey,
+    multibase::Multibase,
     multicodec::{self, Multicodec},
     multihash::Multihash,
     Error, Result,
@@ -39,13 +41,13 @@ pub struct PeerId {
 
 impl fmt::Debug for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("PeerId").field(&self.to_base58()).finish()
+        f.debug_tuple("PeerId").field(&self.to_base58btc()).finish()
     }
 }
 
 impl fmt::Display for PeerId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self.to_base58() {
+        match self.to_base58btc() {
             Ok(val) => val.fmt(f),
             Err(_) => Err(fmt::Error),
         }
@@ -96,7 +98,8 @@ impl PeerId {
         let (bytes, codec) = match rand::thread_rng().gen::<bool>() {
             true => {
                 let codec: Multicodec = multicodec::IDENTITY.into();
-                (rand::thread_rng().gen::<[u8; 32]>().to_vec(), codec)
+                let bytes = rand::thread_rng().gen::<[u8; 32]>().to_vec();
+                (bytes, codec)
             }
             false => {
                 let codec: Multicodec = multicodec::SHA2_256.into();
@@ -117,32 +120,83 @@ impl PeerId {
         Ok(PeerId { mh })
     }
 
-    /// Encode PeerId into raw bytes representation.
-    ///
-    /// **NOTE:** This byte representation is not necessarily consistent with
-    /// equality of peer IDs. That is, two peer IDs may be considered equal
-    /// while having a different byte representation as per `into_bytes`.
-    pub fn encode(self) -> Result<Vec<u8>> {
-        self.mh.encode()
+    /// Decode a base encoded PeerId, human readable text. Peerid format
+    /// can either be in legacy format (base58btc) or multi-base encoded
+    /// CID format.
+    pub fn from_text(text: &str) -> Result<PeerId> {
+        let mut chars = text.chars();
+        let peer_id = match (chars.next(), chars.next()) {
+            (Some('Q'), Some('m')) | (Some('1'), Some(_)) => {
+                // legacy format base58btc.
+                let bytes = {
+                    let res = bs58::decode(text.as_bytes()).into_vec();
+                    err_at!(BadInput, res)?
+                };
+                let (mh, _) = Multihash::decode(&bytes)?;
+                PeerId { mh }
+            }
+            _ => {
+                let bytes = {
+                    let mb = Multibase::decode(text)?;
+                    match mb.to_bytes() {
+                        Some(bytes) => bytes,
+                        None => err_at!(BadInput, msg: format!("{}", text))?,
+                    }
+                };
+                // <multicodec-cidv1><libp2p-key-codec><multihash>
+                let (codec, bytes) = Multicodec::decode(&bytes)?;
+                match codec.to_code() {
+                    multicodec::CID_V1 => (),
+                    _ => err_at!(BadInput, msg: format!("CID {}", codec))?,
+                }
+
+                let (codec, bytes) = Multicodec::decode(bytes)?;
+                match codec.to_code() {
+                    multicodec::LIBP2P_KEY => (),
+                    _ => err_at!(BadInput, msg: format!("codec {}", codec))?,
+                }
+                let (mh, _) = Multihash::decode(bytes)?;
+                PeerId { mh }
+            }
+        };
+
+        Ok(peer_id)
     }
 
-    /// Decode whether `data` is a valid `PeerId`. If so, returns the
-    /// `PeerId`, else error.
-    pub fn decode(buf: &[u8]) -> Result<(PeerId, &[u8])> {
-        let (mh, rem) = Multihash::decode(buf)?;
-        Ok((PeerId { mh }, rem))
-    }
-
-    /// Returns a base-58 encoded string of this `PeerId`.
-    pub fn to_base58(&self) -> Result<String> {
+    /// Encode peer-id to base58btc format.
+    pub fn to_base58btc(&self) -> Result<String> {
         Ok(bs58::encode(self.mh.encode()?).into_string())
     }
 
-    /// Convert BASE58 string to PeerId.
-    pub fn from_base58(s: &str) -> Result<Self> {
-        let bytes = err_at!(DecodeError, bs58::decode(s).into_vec())?;
-        let (peer_id, _) = PeerId::decode(&bytes)?;
-        Ok(peer_id)
+    /// Encode peer-id to multi-base encoded CID format.
+    pub fn to_base_text(&self, base: Base) -> Result<String> {
+        let mut data = {
+            let codec = Multicodec::from_code(multicodec::CID_V1)?;
+            codec.encode()?
+        };
+        {
+            let codec = Multicodec::from_code(multicodec::LIBP2P_KEY)?;
+            data.extend(codec.encode()?);
+        };
+        data.extend(self.mh.encode()?);
+
+        Ok(Multibase::from_base(base.clone(), &data)?.encode()?)
+    }
+
+    /// Encode PeerId into multihash-binary-format.
+    ///
+    /// **NOTE:** This byte representation is not necessarily consistent
+    /// with equality of peer IDs. That is, two peer IDs may be considered
+    /// equal while having a different byte representation as per
+    /// `into_bytes`.
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        self.mh.encode()
+    }
+
+    /// Decode PeerId from multihash-binary-format.
+    pub fn decode(buf: &[u8]) -> Result<(PeerId, &[u8])> {
+        let (mh, rem) = Multihash::decode(buf)?;
+        Ok((PeerId { mh }, rem))
     }
 
     /// Checks whether the public key passed as parameter matches the

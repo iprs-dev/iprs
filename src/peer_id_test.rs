@@ -2,7 +2,7 @@ use super::*;
 use crate::identity;
 
 #[test]
-fn peer_id_is_public_key() {
+fn test_peer_id_is_public_key() {
     let key = identity::Keypair::generate_ed25519()
         .unwrap()
         .to_public_key();
@@ -12,7 +12,7 @@ fn peer_id_is_public_key() {
 }
 
 #[test]
-fn peer_id_encode_decode() {
+fn test_peer_id_encode_decode() {
     let peer_id = identity::Keypair::generate_ed25519()
         .unwrap()
         .to_public_key()
@@ -25,14 +25,15 @@ fn peer_id_encode_decode() {
 }
 
 #[test]
-fn peer_id_to_base58_then_back1() {
+fn test_peer_id_to_base58_then_back1() {
     let peer_id = identity::Keypair::generate_ed25519()
         .unwrap()
         .to_public_key()
         .into_peer_id()
         .unwrap();
-    println!(".... PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
-    let second: PeerId = PeerId::from_base58(&peer_id.to_base58().unwrap()).unwrap();
+    let text = peer_id.to_base58btc().unwrap();
+    println!(".... PEER_ID BASE58 {}", text);
+    let second: PeerId = PeerId::from_text(&text).unwrap();
     assert_eq!(peer_id, second);
 }
 
@@ -46,54 +47,32 @@ fn peer_id_to_base58_then_back2() {
         .to_public_key()
         .into_peer_id()
         .unwrap();
-    println!(".... PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
-    let second: PeerId = PeerId::from_base58(&peer_id.to_base58().unwrap()).unwrap();
+    let text = peer_id.to_base58btc().unwrap();
+    println!(".... PEER_ID BASE58 {}", text);
+    let second: PeerId = PeerId::from_text(&text).unwrap();
     assert_eq!(peer_id, second);
 }
 
 #[test]
-fn from_bs32() {
-    use crate::multibase::Multibase;
+fn test_peer_id_examples() {
+    let text = "bafzbeie5745rpv2m6tjyuugywy4d5ewrqgqqhfnf445he3omzpjbx5xqxe";
+    let peer_id = PeerId::from_text(text).unwrap();
+    // TODO: verify the hash value.
+    assert_eq!(peer_id.to_base_text(Base::Base32Lower).unwrap(), text);
+    let data = peer_id.encode().unwrap();
+    assert_eq!(PeerId::decode(&data).unwrap().0, peer_id);
 
-    let data = "bafzbeie5745rpv2m6tjyuugywy4d5ewrqgqqhfnf445he3omzpjbx5xqxe";
-    let mb = Multibase::decode(data).unwrap();
-    let data = mb.to_bytes().unwrap();
-    let (codec, _) = Multicodec::decode(&data).unwrap();
-    println!(".... from_bs32 {}", codec);
+    let text = "QmYyQSo1c1Ym7orWxLYvCrM2EmxFTANf8wXmmE7DWjhx5N";
+    let peer_id = PeerId::from_text(text).unwrap();
+    // TODO: verify the hash value.
+    assert_eq!(peer_id.to_base58btc().unwrap(), text);
+    let data = peer_id.encode().unwrap();
+    assert_eq!(PeerId::decode(&data).unwrap().0, peer_id);
+
+    let text = "12D3KooWD3eckifWpRn9wQpMG9R9hX3sD158z7EqHWmweQAJU5SA";
+    let peer_id = PeerId::from_text(text).unwrap();
+    // TODO: verify the hash value.
+    assert_eq!(peer_id.to_base58btc().unwrap(), text);
+    let data = peer_id.encode().unwrap();
+    assert_eq!(PeerId::decode(&data).unwrap().0, peer_id);
 }
-
-//#[test]
-//fn peer_id_to_base58_then_back1() {
-//    let peer_id = identity::Keypair::generate_ed25519()
-//        .unwrap()
-//        .to_public_key()
-//        .into_peer_id()
-//        .unwrap();
-//    println!("PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
-//    let second: PeerId = PeerId::from_base58(&peer_id.to_base58().unwrap()).unwrap();
-//    assert_eq!(peer_id, second);
-//}
-//
-//#[test]
-//fn peer_id_to_base58_then_back2() {
-//    let mut key = RSA_KEY.to_vec();
-//    let peer_id = identity::Keypair::rsa_from_pkcs8(&mut key)
-//        .unwrap()
-//        .to_public_key()
-//        .into_peer_id()
-//        .unwrap();
-//    println!("PEER_ID BASE58 {}", peer_id.to_base58().unwrap());
-//    let second: PeerId = PeerId::from_base58(&peer_id.to_base58().unwrap()).unwrap();
-//    assert_eq!(peer_id, second);
-//}
-
-//#[test]
-//fn random_peer_id_is_valid() {
-//    for _ in 0..5000 {
-//        let peer_id = PeerId::random();
-//        assert_eq!(
-//            peer_id,
-//            PeerId::from_bytes(peer_id.clone().into_bytes()).unwrap()
-//        );
-//    }
-//}

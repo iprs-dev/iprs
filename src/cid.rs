@@ -146,7 +146,7 @@ impl Cid {
 
     /// Encode in base format.
     ///
-    /// * If value is a CIDv0 variant, encoded into legacy base48btc format.
+    /// * If value is a CIDv0 variant, encoded into legacy base58btc format.
     /// * If value is a CIDv1 variant, encoded using specified base format.
     pub fn to_base_text(&self) -> Result<String> {
         let text = match self {
