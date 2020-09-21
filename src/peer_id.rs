@@ -1,3 +1,8 @@
+//! Module implement Peer ID for libp2p network. Refer [peer-id] spec
+//! for details.
+//!
+//! [peer-id]: https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md
+
 use bs58;
 use multibase::Base;
 use rand::Rng;

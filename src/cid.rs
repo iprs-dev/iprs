@@ -1,3 +1,7 @@
+//! Module implement content Identifier. Refer [cid] spec for details.
+//!
+//! [cid]: https://github.com/multiformats/cid
+
 use bs58;
 use multibase::Base;
 
