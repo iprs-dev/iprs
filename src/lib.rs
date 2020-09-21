@@ -1,3 +1,5 @@
+// Copyright (c) 2020 R Pratap Chakravarthy
+
 //! Package implement [multiformats] specification.
 //!
 //! [multiformats]: http://multiformats.io

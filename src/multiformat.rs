@@ -1,3 +1,5 @@
+// Copyright (c) 2020 R Pratap Chakravarthy
+
 //! Module implement Multiformat type for reading byte-stream.
 
 use crate::{

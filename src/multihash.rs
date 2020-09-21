@@ -1,3 +1,5 @@
+// Copyright (c) 2020 R Pratap Chakravarthy
+
 //! Module adapts several hashing algorithms into multiformat
 //! specification.
 

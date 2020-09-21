@@ -1,3 +1,5 @@
+// Copyright (c) 2020 R Pratap Chakravarthy
+
 //! Module handles [multibase] specification.
 //!
 //! [multibase]: https://github.com/multiformats/multibase
