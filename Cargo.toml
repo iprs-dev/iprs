@@ -33,6 +33,8 @@ rand = "0.7.3"
 ed25519-dalek = "1.0.0-pre.4"
 libsecp256k1 = { version = "0.3.5", optional = true }
 bs58 = "0.3.0"
+data-encoding = "2.3.0"
+data-encoding-macro = { version = "0.1.8", default-features = false }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ring = { version = "0.16.9", features = ["alloc", "std"], default-features = false }

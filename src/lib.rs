@@ -6,6 +6,9 @@
 use std::{error, fmt, result};
 
 #[macro_use]
+extern crate data_encoding_macro;
+
+#[macro_use]
 mod util;
 pub mod cid;
 pub mod identity;
