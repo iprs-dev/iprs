@@ -36,6 +36,7 @@ pub enum Error {
     SigningError(String, String),
     BadInput(String, String),
     BadCodec(String, String),
+    BadAddr(String, String),
     HashFail(String, String),
     NotImplemented(String, String),
 }
@@ -53,6 +54,7 @@ impl fmt::Display for Error {
             SigningError(p, msg) => write!(f, "{} SigningError: {}", p, msg),
             BadInput(p, msg) => write!(f, "{} BadInput: {}", p, msg),
             BadCodec(p, msg) => write!(f, "{} BadCodec: {}", p, msg),
+            BadAddr(p, msg) => write!(f, "{} BadAddr: {}", p, msg),
             HashFail(p, msg) => write!(f, "{} HashFail: {}", p, msg),
             NotImplemented(p, msg) => write!(f, "{} NotImplemented: {}", p, msg),
         }

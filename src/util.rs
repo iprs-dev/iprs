@@ -40,6 +40,7 @@ macro_rules! err_at {
             Err(SigningError(_, s)) => Err(SigningError(p, s)),
             Err(BadInput(_, s)) => Err(BadInput(p, s)),
             Err(BadCodec(_, s)) => Err(BadCodec(p, s)),
+            Err(BadAddr(_, s)) => Err(BadAddr(p, s)),
             Err(HashFail(_, s)) => Err(HashFail(p, s)),
             Err(NotImplemented(_, s)) => Err(NotImplemented(p, s)),
         }

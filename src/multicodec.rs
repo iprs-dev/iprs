@@ -98,6 +98,8 @@ macro_rules! code_points {
             #[$doc]
             pub const $label: u128 = $code;
         )*
+        /// Alias, for P2P for backward compatibility
+        pub const IPFS: u128 = 0x01a5;
 
         impl fmt::Display for Multicodec {
             fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
@@ -116,13 +118,22 @@ macro_rules! code_points {
             /// `Vec<Codepoint>`.
             ///
             /// [table]: https://github.com/multiformats/multicodec/blob/master/table.csv
-            pub static ref TABLE: Vec<Codepoint> = vec![
-                $(Codepoint {
-                    code: $code,
-                    name: $name.to_string(),
-                    tag: $tag.to_string()
-                },)*
-            ];
+            pub static ref TABLE: Vec<Codepoint> = {
+                let mut table = vec![
+                    $(Codepoint {
+                        code: $code,
+                        name: $name.to_string(),
+                        tag: $tag.to_string()
+                    },)*
+                ];
+                // aliases
+                table.push(Codepoint {
+                    code: 0x01a5,
+                    name: "ipfs".to_string(),
+                    tag: "multiaddr".to_string(),
+                });
+                table
+            };
 
             // Pre-sorted table of multihash code values, only codes tagged as
             // "multihash" will be gathered in this table.
@@ -131,23 +142,6 @@ macro_rules! code_points {
                 $(
                     match $tag {
                         "multihash" => codes.push(Codepoint {
-                            code: $code,
-                            name: $name.to_string(),
-                            tag: $tag.to_string()
-                        }),
-                        _ => ()
-                    };
-                )*
-                codes
-            };
-
-            // Pre-sorted table of multibase code values, only codes tagged as
-            // "multibase" will be gathered in this table.
-            static ref TABLE_MULTIBASE: Vec<Codepoint> = {
-                let mut codes = Vec::default();
-                $(
-                    match $tag {
-                        "multibase" => codes.push(Codepoint {
                             code: $code,
                             name: $name.to_string(),
                             tag: $tag.to_string()
@@ -1123,15 +1117,6 @@ code_points![
 /// Return a list of code-points tagged as "multihash".
 pub fn multihash_codes() -> Vec<u128> {
     TABLE_MULTIHASH
-        .clone()
-        .into_iter()
-        .map(|cp| cp.code)
-        .collect()
-}
-
-/// Return a list of code-points tagged as "multibase".
-pub fn multibase_codes() -> Vec<u128> {
-    TABLE_MULTIBASE
         .clone()
         .into_iter()
         .map(|cp| cp.code)
