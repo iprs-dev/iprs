@@ -81,10 +81,11 @@ pub enum Multiaddr {
         mddr: Option<Box<Multiaddr>>,
     },
     P2p {
-        addr: PeerId,
+        peer_id: PeerId,
         mddr: Option<Box<Multiaddr>>,
     },
     Ipfs {
+        peer_id: PeerId,
         mddr: Option<Box<Multiaddr>>,
     },
     Unix {
@@ -213,14 +214,14 @@ impl Multiaddr {
                 Multiaddr::Garlic32 { addr, mddr }
             }
             ["p2p", addr, tail @ ..] => {
-                let addr = PeerId::from_text(addr)?;
+                let peer_id = PeerId::from_text(addr)?;
                 let mddr = Some(Box::new(Self::parse_text_parts(tail)?));
-                Multiaddr::P2p { addr, mddr }
+                Multiaddr::P2p { peer_id, mddr }
             }
             ["ipfs", addr, tail @ ..] => {
-                let addr = PeerId::from_text(addr)?;
+                let peer_id = PeerId::from_text(addr)?;
                 let mddr = Some(Box::new(Self::parse_text_parts(tail)?));
-                Multiaddr::P2p { addr, mddr }
+                Multiaddr::P2p { peer_id, mddr }
             }
             ["unix", tail @ ..] => {
                 // it's a path protocol (terminal).
@@ -269,41 +270,115 @@ impl Multiaddr {
     }
 
     pub fn to_text(&self) -> Result<String> {
+        use std::str::from_utf8;
         use Multiaddr::*;
 
-        match self {
+        let tail_text = |ma: Option<&Box<Multiaddr>>| -> Result<String> {
+            let val = match ma {
+                Some(ma) => ma.to_text()?,
+                None => "".to_string(),
+            };
+
+            Ok(val)
+        };
+
+        let text = match self {
             Binary { data } => {
                 let (maddr, _) = Self::decode(&data)?;
-                maddr.to_text()
+                maddr.to_text()?
             }
-            Ip4 { addr, mddr } => todo!(),
-            Ip6 { addr, mddr } => todo!(),
-            Tcp { port, mddr } => todo!(),
-            Dns { addr, mddr } => todo!(),
-            Dns4 { addr, mddr } => todo!(),
-            Dns6 { addr, mddr } => todo!(),
-            Dnsaddr { addr, mddr } => todo!(),
-            Udp { port, mddr } => todo!(),
-            Dccp { port, mddr } => todo!(),
-            Ip6zone { addr, mddr } => todo!(),
-            Sctp { port, mddr } => todo!(),
-            P2pCircuit { mddr } => todo!(),
-            Onion { hash, port, mddr } => todo!(),
-            Onion3 { hash, port, mddr } => todo!(),
-            Garlic64 { addr, mddr } => todo!(),
-            Garlic32 { addr, mddr } => todo!(),
-            Unix { path } => todo!(),
-            P2p { addr, mddr } => todo!(),
-            Ipfs { mddr } => todo!(),
-            Udt { mddr } => todo!(),
-            Utp { mddr } => todo!(),
-            Http { mddr } => todo!(),
-            Https { mddr } => todo!(),
-            P2pWebRtcDirect { mddr } => todo!(),
-            Ws { mddr } => todo!(),
-            Wss { mddr } => todo!(),
-            Quic { mddr } => todo!(),
-        }
+            Ip4 { addr, mddr } => {
+                let s = "/ip4".to_string() + &addr.to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            Ip6 { addr, mddr } => {
+                let s = "/ip6".to_string() + &addr.to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            Tcp { port, mddr } => {
+                let s = "/tcp".to_string() + &port.to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            Dns { addr, mddr } => {
+                let s = "/dns".to_string();
+                let s = s + &err_at!(DecodeError, from_utf8(addr))?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Dns4 { addr, mddr } => {
+                let s = "/dns4".to_string();
+                let s = s + &err_at!(DecodeError, from_utf8(addr))?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Dns6 { addr, mddr } => {
+                let s = "/dns6".to_string();
+                let s = s + &err_at!(DecodeError, from_utf8(addr))?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Dnsaddr { addr, mddr } => {
+                let s = "/dnsaddr".to_string();
+                let s = s + &err_at!(DecodeError, from_utf8(addr))?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Udp { port, mddr } => {
+                let s = "/udp".to_string() + &port.to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            Dccp { port, mddr } => {
+                let s = "/dccp".to_string() + &port.to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            Ip6zone { addr, mddr } => {
+                let s = "/ip6zone".to_string();
+                let s = s + &err_at!(DecodeError, from_utf8(addr))?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Sctp { port, mddr } => {
+                let s = "/sctp".to_string() + &port.to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            P2pCircuit { mddr } => {
+                let s = "/p2p-circuit".to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            Onion { hash, port, mddr } => {
+                let s = "/onion".to_string() + &to_onion_text(hash, *port)?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Onion3 { hash, port, mddr } => {
+                let s = "/onion".to_string() + &to_onion3_text(hash, *port)?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Garlic64 { addr, mddr } => {
+                let s = "/garlic64".to_string() + &to_garlic64(addr)?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Garlic32 { addr, mddr } => {
+                let s = "/garlic32".to_string() + &to_garlic32(addr)?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            P2p { peer_id, mddr } => {
+                let s = "/p2p".to_string() + &peer_id.to_base58btc()?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Ipfs { peer_id, mddr } => {
+                let s = "/p2p".to_string() + &peer_id.to_base58btc()?;
+                s + &tail_text(mddr.as_ref())?
+            }
+            Unix { path } => "/unix".to_string() + &path,
+            Udt { mddr } => "/udt".to_string() + &tail_text(mddr.as_ref())?,
+            Utp { mddr } => "/udt".to_string() + &tail_text(mddr.as_ref())?,
+            Http { mddr } => "/udt".to_string() + &tail_text(mddr.as_ref())?,
+            Https { mddr } => "/udt".to_string() + &tail_text(mddr.as_ref())?,
+            P2pWebRtcDirect { mddr } => {
+                let s = "/udt".to_string();
+                s + &tail_text(mddr.as_ref())?
+            }
+            Ws { mddr } => "/udt".to_string() + &tail_text(mddr.as_ref())?,
+            Wss { mddr } => "/udt".to_string() + &tail_text(mddr.as_ref())?,
+            Quic { mddr } => "/udt".to_string() + &tail_text(mddr.as_ref())?,
+        };
+
+        Ok(text)
     }
 
     pub fn decode(bytes: &[u8]) -> Result<(Multiaddr, &[u8])> {
@@ -347,7 +422,7 @@ impl Multiaddr {
 }
 
 impl Multiaddr {
-    fn to_multicodec(&self) -> Option<Multicodec> {
+    pub fn to_multicodec(&self) -> Option<Multicodec> {
         use Multiaddr::*;
 
         let code = match self {
@@ -411,6 +486,13 @@ fn parse_onion_addr(addr: &str) -> Result<(Vec<u8>, u16)> {
     Ok((hash, port))
 }
 
+fn to_onion_text(hash: &[u8], port: u16) -> Result<String> {
+    use data_encoding::BASE32;
+
+    let s = BASE32.encode(&hash) + ":" + &port.to_string();
+    Ok(s)
+}
+
 fn parse_onion3_addr(addr: &str) -> Result<(Vec<u8>, u16)> {
     use data_encoding::BASE32;
 
@@ -437,6 +519,13 @@ fn parse_onion3_addr(addr: &str) -> Result<(Vec<u8>, u16)> {
     Ok((hash, port))
 }
 
+fn to_onion3_text(hash: &[u8], port: u16) -> Result<String> {
+    use data_encoding::BASE32;
+
+    let s = BASE32.encode(&hash) + ":" + &port.to_string();
+    Ok(s)
+}
+
 const GARLIC64: data_encoding::Encoding = new_encoding! {
     symbols: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-~",
     padding: '=',
@@ -450,6 +539,10 @@ fn parse_garlic64(addr: &str) -> Result<Vec<u8>> {
     } else {
         Ok(err_at!(BadAddr, GARLIC64.decode(addr.as_bytes()))?)
     }
+}
+
+fn to_garlic64(addr: &[u8]) -> Result<String> {
+    Ok(GARLIC64.encode(addr))
 }
 
 const GARLIC32: data_encoding::Encoding = new_encoding! {
@@ -472,4 +565,8 @@ fn parse_garlic32(addr: &str) -> Result<Vec<u8>> {
         };
         Ok(err_at!(BadAddr, GARLIC32.decode(addr.as_bytes()))?)
     }
+}
+
+fn to_garlic32(addr: &[u8]) -> Result<String> {
+    Ok(GARLIC32.encode(addr))
 }
