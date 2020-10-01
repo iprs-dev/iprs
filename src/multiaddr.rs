@@ -8,10 +8,25 @@ use crate::{
     Error, Result,
 };
 
+#[macro_export]
+macro_rules! read_slice {
+    ($data:expr, $n:expr, $prefix:expr) => {
+        if $data.len() < $n {
+            let msg = format!("{} insufficient bytes {}", $prefix, $n);
+            err_at!(DecodeError, msg: msg)
+        } else {
+            Ok((&$data[..$n], &$data[$n..]))
+        }
+    };
+}
+
 /// Multiaddr type, either as binary encoded data or as one of
 /// many multiaddr values, like Ip4, Tcp, Udp, Quic etc..
 #[derive(Clone, Eq, PartialEq)]
 pub enum Multiaddr {
+    Text {
+        text: String,
+    },
     Binary {
         data: Vec<u8>,
     },
@@ -283,6 +298,7 @@ impl Multiaddr {
         };
 
         let text = match self {
+            Text { text } => text.clone(),
             Binary { data } => {
                 let (maddr, _) = Self::decode(&data)?;
                 maddr.to_text()?
@@ -381,44 +397,526 @@ impl Multiaddr {
         Ok(text)
     }
 
-    pub fn decode(bytes: &[u8]) -> Result<(Multiaddr, &[u8])> {
-        todo!()
-        //let (addr, byts) = Self::do_decode(bytes)?;
-        //Some((*addr, byts))
+    pub fn decode(data: &[u8]) -> Result<(Multiaddr, &[u8])> {
+        use std::str::from_utf8;
+        use unsigned_varint::decode as uv_decode;
+
+        let (codec, data) = Multicodec::decode(data)?;
+
+        let (ma, data) = match codec.to_code() {
+            multicodec::IP4 if data.len() >= 4 => {
+                let (bs, data) = read_slice!(data, 4, "ip4")?;
+                let addr = net::Ipv4Addr::new(bs[0], bs[1], bs[2], bs[3]);
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Ip4 {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::IP6 => {
+                let (bs, data) = read_slice!(data, 16, "ip6")?;
+                let addr: net::Ipv6Addr = {
+                    let mut addr = [0_u8; 16];
+                    addr.copy_from_slice(bs);
+                    addr.into()
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Ip6 {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::TCP => {
+                let (bs, data) = read_slice!(data, 2, "tcp")?;
+                let port: u16 = u16::from_be_bytes(bs.try_into().unwrap());
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Tcp {
+                        port,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::DNS => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    let (name, data) = read_slice!(data, (n as usize), "dns")?;
+                    (name.to_vec(), data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Dns {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::DNS4 => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    let (name, data) = read_slice!(data, (n as usize), "dns4")?;
+                    (name.to_vec(), data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Dns {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::DNS6 => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    let (name, data) = read_slice!(data, (n as usize), "dns6")?;
+                    (name.to_vec(), data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Dns {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::DNSADDR => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    let (name, data) = read_slice!(data, (n as usize), "dnsaddr")?;
+                    (name.to_vec(), data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Dns {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::UDP => {
+                let (bs, data) = read_slice!(data, 2, "udp")?;
+                let port: u16 = u16::from_be_bytes(bs.try_into().unwrap());
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Udp {
+                        port,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::DCCP => {
+                let (bs, data) = read_slice!(data, 2, "dccp")?;
+                let port: u16 = u16::from_be_bytes(bs.try_into().unwrap());
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Udp {
+                        port,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::IP6ZONE => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    let (name, data) = read_slice!(data, (n as usize), "ip6zone")?;
+                    (name.to_vec(), data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Ip6zone {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::SCTP => {
+                let (bs, data) = read_slice!(data, 2, "sctp")?;
+                let port: u16 = u16::from_be_bytes(bs.try_into().unwrap());
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Sctp {
+                        port,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::P2P_CIRCUIT => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::P2pCircuit {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::ONION => {
+                let (hash, data) = read_slice!(data, 10, "onion-addr")?;
+                let (port, data) = {
+                    let (bs, data) = read_slice!(data, 2, "onion-port")?;
+                    let port: u16 = u16::from_be_bytes(bs.try_into().unwrap());
+                    (port, data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Onion {
+                        hash: hash.to_vec(),
+                        port,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::ONION3 => {
+                let (hash, data) = read_slice!(data, 35, "onion3-addr")?;
+                let (port, data) = {
+                    let (bs, data) = read_slice!(data, 2, "onion3-port")?;
+                    let port: u16 = u16::from_be_bytes(bs.try_into().unwrap());
+                    (port, data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Onion {
+                        hash: hash.to_vec(),
+                        port,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::GARLIC64 => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    let (name, data) = read_slice!(data, (n as usize), "garlic64")?;
+                    (name.to_vec(), data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Garlic64 {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::GARLIC32 => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    let (name, data) = read_slice!(data, (n as usize), "garlic32")?;
+                    (name.to_vec(), data)
+                };
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Garlic64 {
+                        addr,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::P2P => {
+                let (addr, data) = {
+                    let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                    read_slice!(data, (n as usize), "p2p")?
+                };
+                let (peer_id, _) = PeerId::decode(addr)?;
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::P2p {
+                        peer_id,
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::UNIX => {
+                let (n, data) = err_at!(DecodeError, uv_decode::u128(data))?;
+                let (path, data) = read_slice!(data, (n as usize), "unix")?;
+                let path = err_at!(DecodeError, from_utf8(path))?.to_string();
+                (Multiaddr::Unix { path }, data)
+            }
+            multicodec::UTP => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Utp {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::UDT => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Udt {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::QUIC => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Quic {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::HTTP => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Http {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::HTTPS => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Https {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::P2P_WEBRTC_DIRECT => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::P2pWebRtcDirect {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::WS => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Ws {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            multicodec::WSS => {
+                let (mddr, data) = Self::decode(data)?;
+                (
+                    Multiaddr::Wss {
+                        mddr: Some(Box::new(mddr)),
+                    },
+                    data,
+                )
+            }
+            code => err_at!(DecodeError, msg: format!("invalid code {}", code))?,
+        };
+
+        Ok((ma, data))
     }
 
-    //fn do_decode(bytes: &[u8]) -> Option<(Box<Multiaddr>, &[u8])> {
-    //    if bytes.len() == 0 {
-    //        return None;
-    //    }
+    pub fn encode(&self) -> Result<Vec<u8>> {
+        use unsigned_varint::encode::u128 as uv_encode;
+        use Multiaddr::*;
 
-    //    let (mcode, bs) = Multicodec::decode(bytes).ok()?;
-    //    match mcode.to_code() {
-    //        multicodec::IP4 if bs.len() >= 4 => {
-    //            let addr = net::Ipv4Addr::new(bs[0], bs[1], bs[2], bs[3]);
-    //            let byts = &bs[4..];
-    //            let (mddr, byts) = match Self::do_decode(byts) {
-    //                Some((mddr, byts)) => (Some(mddr), byts),
-    //                None => (None, byts),
-    //            };
-    //            Some((Box::new(Multiaddr::Ip4 { addr, mddr }), byts))
-    //        }
-    //        multicodec::TCP if bs.len() >= 2 => {
-    //            let port = u16::from_be_bytes(bs[..2].try_into().unwrap());
-    //            Some((Box::new(Multiaddr::Tcp { port }), &bs[2..]))
-    //        }
-    //        multicodec::UDP if bs.len() >= 2 => {
-    //            let port = u16::from_be_bytes(bs[..2].try_into().unwrap());
-    //            let (mddr, bytes) = match Self::do_decode(&bs[2..]) {
-    //                Some((mddr, bytes)) => (Some(mddr), bytes),
-    //                None => (None, &bs[2..]),
-    //            };
-    //            Some((Box::new(Multiaddr::Udp { port, mddr }), bytes))
-    //        }
-    //        multicodec::QUIC => Some((Box::new(Multiaddr::Quic), bs)),
-    //        _ => None,
-    //    }
-    //}
+        let mut buf = [0_u8; 19];
+
+        let tail_bytes = |ma: Option<&Box<Multiaddr>>| -> Result<Vec<u8>> {
+            let val = match ma {
+                Some(ma) => ma.encode()?,
+                None => vec![],
+            };
+
+            Ok(val)
+        };
+
+        let data = match self {
+            Text { text } => Self::from_text(text)?.encode()?,
+            Binary { data } => data.clone(),
+            Ip4 { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::IP4)?.encode()?;
+                data.extend_from_slice(&addr.octets());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Ip6 { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::IP6)?.encode()?;
+                data.extend_from_slice(&addr.octets());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Tcp { port, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::TCP)?.encode()?;
+                data.extend_from_slice(&port.to_be_bytes());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Dns { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::DNS)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Dns4 { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::DNS4)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Dns6 { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::DNS6)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Dnsaddr { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::DNSADDR)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Udp { port, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::UDP)?.encode()?;
+                data.extend_from_slice(&port.to_be_bytes());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Dccp { port, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::DCCP)?.encode()?;
+                data.extend_from_slice(&port.to_be_bytes());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Ip6zone { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::IP6ZONE)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Sctp { port, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::SCTP)?.encode()?;
+                data.extend_from_slice(&port.to_be_bytes());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            P2pCircuit { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::P2P_CIRCUIT)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Onion { hash, port, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::ONION)?.encode()?;
+                data.extend_from_slice(&hash);
+                data.extend_from_slice(&port.to_be_bytes());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Onion3 { hash, port, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::ONION3)?.encode()?;
+                data.extend_from_slice(&hash);
+                data.extend_from_slice(&port.to_be_bytes());
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Garlic64 { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::GARLIC64)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Garlic32 { addr, mddr } => {
+                let mut data = Multicodec::from_code(multicodec::GARLIC32)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            P2p { peer_id, mddr } => {
+                let addr = peer_id.encode()?;
+
+                let mut data = Multicodec::from_code(multicodec::P2P)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Ipfs { peer_id, mddr } => {
+                let addr = peer_id.encode()?;
+
+                let mut data = Multicodec::from_code(multicodec::P2P)?.encode()?;
+                data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
+                data.extend_from_slice(&addr);
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Unix { path } => {
+                let mut data = Multicodec::from_code(multicodec::UNIX)?.encode()?;
+                data.extend_from_slice(uv_encode(path.len() as u128, &mut buf));
+                data.extend_from_slice(path.as_bytes());
+                data
+            }
+            Udt { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::UDT)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Utp { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::UTP)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Http { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::HTTP)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Https { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::HTTPS)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Quic { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::QUIC)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            P2pWebRtcDirect { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::P2P_WEBRTC_DIRECT)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Ws { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::WS)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+            Wss { mddr } => {
+                let mut data = Multicodec::from_code(multicodec::WSS)?.encode()?;
+                data.extend_from_slice(&tail_bytes(mddr.as_ref())?);
+                data
+            }
+        };
+
+        Ok(data)
+    }
 }
 
 impl Multiaddr {
@@ -426,6 +924,7 @@ impl Multiaddr {
         use Multiaddr::*;
 
         let code = match self {
+            Text { .. } => return None,
             Binary { .. } => return None,
             Ip4 { .. } => 0x0004,
             Ip6 { .. } => 0x0029,
@@ -504,7 +1003,7 @@ fn parse_onion3_addr(addr: &str) -> Result<(Vec<u8>, u16)> {
         (Some(base_hash), Some(port)) => {
             let base_hash = base_hash.to_uppercase();
             let hash = err_at!(BadAddr, BASE32.decode(base_hash.as_bytes()))?;
-            if hash.len() != 32 {
+            if hash.len() != 35 {
                 err_at!(BadAddr, msg: format!("base_hash: {}", base_hash))?
             }
             let port: u16 = err_at!(BadAddr, port.parse())?;
