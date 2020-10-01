@@ -1,3 +1,6 @@
+//! Module implement [multiaddr](https://multiformats.io/multiaddr/)
+//! specification.
+
 // Copyright (c) 2020 R Pratap Chakravarthy
 
 use std::{convert::TryInto, net};
@@ -20,8 +23,14 @@ macro_rules! read_slice {
     };
 }
 
-/// Multiaddr type, either as binary encoded data or as one of
-/// many multiaddr values, like Ip4, Tcp, Udp, Quic etc..
+/// Type implement a multiaddress.
+///
+/// As an enumerated type it can hold multiaddress,
+///
+/// * Address encoded in binary format.
+/// * Address encoded in text format.
+/// * Or parsed from binary/text format and held as Ip4, Tcp, Udp,
+///   Quic etc..
 #[derive(Clone, Eq, PartialEq)]
 pub enum Multiaddr {
     Text {
@@ -133,6 +142,8 @@ pub enum Multiaddr {
 }
 
 impl Multiaddr {
+    /// Parse text formated multi-address. Refer to
+    /// [spec](https://multiformats.io/multiaddr/) for details.
     pub fn from_text(text: &str) -> Result<Multiaddr> {
         let parts: Vec<&str> = text.split('/').collect();
 
@@ -284,6 +295,7 @@ impl Multiaddr {
         Ok(maddr)
     }
 
+    /// Convert this multi-address into text format.
     pub fn to_text(&self) -> Result<String> {
         use std::str::from_utf8;
         use Multiaddr::*;
@@ -397,6 +409,8 @@ impl Multiaddr {
         Ok(text)
     }
 
+    /// Parse binary formated multi-address. Refer to
+    /// [spec](https://multiformats.io/multiaddr/) for details.
     pub fn decode(data: &[u8]) -> Result<(Multiaddr, &[u8])> {
         use std::str::from_utf8;
         use unsigned_varint::decode as uv_decode;
@@ -727,6 +741,7 @@ impl Multiaddr {
         Ok((ma, data))
     }
 
+    /// Encode this multi-address into binary format.
     pub fn encode(&self) -> Result<Vec<u8>> {
         use unsigned_varint::encode::u128 as uv_encode;
         use Multiaddr::*;
@@ -920,6 +935,7 @@ impl Multiaddr {
 }
 
 impl Multiaddr {
+    /// Return the multiaddress as multi-codec.
     pub fn to_multicodec(&self) -> Option<Multicodec> {
         use Multiaddr::*;
 
