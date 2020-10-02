@@ -1,7 +1,7 @@
 // Copyright (c) 2020 R Pratap Chakravarthy
 
-//! Module implement Peer ID for libp2p network. Refer [peer-id] spec
-//! for details.
+//! Module implement Peer ID for libp2p network. _Refer [peer-id] spec
+//! for details_.
 //!
 //! [peer-id]: https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md
 
@@ -24,7 +24,7 @@ use crate::{
 /// be hashed using the "identity" multihash codec.
 const MAX_INLINE_KEY_LENGTH: usize = 42;
 
-/// Unique identifier of a peer of the network.
+/// Unique identifier of a peer in the network.
 ///
 /// Peer IDs are derived by hashing the encoded public-key with multihash.
 ///
@@ -73,6 +73,12 @@ impl hash::Hash for PeerId {
 impl PartialEq<PeerId> for PeerId {
     fn eq(&self, other: &PeerId) -> bool {
         self.mh == other.mh
+    }
+}
+
+impl From<Multihash> for PeerId {
+    fn from(mh: Multihash) -> Self {
+        PeerId { mh }
     }
 }
 
@@ -194,8 +200,7 @@ impl PeerId {
     ///
     /// **NOTE:** This byte representation is not necessarily consistent
     /// with equality of peer IDs. That is, two peer IDs may be considered
-    /// equal while having a different byte representation as per
-    /// `into_bytes`.
+    /// equal while having a different byte representation.
     pub fn encode(&self) -> Result<Vec<u8>> {
         self.mh.encode()
     }
@@ -215,6 +220,39 @@ impl PeerId {
     pub fn is_public_key(&self, public_key: &PublicKey) -> Option<bool> {
         let other = PeerId::from_public_key(public_key.clone()).ok()?;
         Some(self.mh == other.mh)
+    }
+
+    /// Return the peer-id as condensed version of PeerID::to_string().
+    pub fn to_short_string(&self) -> String {
+        use std::iter::FromIterator;
+
+        let s = self.to_string();
+        let chars: Vec<char> = s.chars().collect();
+
+        if chars.len() <= 10 {
+            String::from_iter(chars.into_iter())
+        } else {
+            let mut short = chars[..2].to_vec();
+            short.push('*');
+            short.extend_from_slice(&chars[(chars.len() - 6)..]);
+            String::from_iter(short.into_iter())
+        }
+    }
+
+    /// Sometimes PeerID could be encoded using IDENTITY hash. Which means,
+    /// unlike when it is encoded as public-key's hash, it is possible to
+    /// extract the public-key from the peer-id.
+    pub fn to_public_key(&self) -> Result<Option<PublicKey>> {
+        let (codec, digest) = self.mh.clone().unwrap();
+        let public_key = match codec.to_code() {
+            multicodec::IDENTITY => {
+                let public_key = PublicKey::from_protobuf_encoding(&digest)?;
+                Some(public_key)
+            }
+            _ => None,
+        };
+
+        Ok(public_key)
     }
 }
 
