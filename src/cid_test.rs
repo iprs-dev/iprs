@@ -26,7 +26,7 @@ fn test_cid_v1() {
     let mut hasher = sha2::Sha256::new();
     hasher.update(data);
     let digest = hasher.finalize_reset().as_slice().to_vec();
-    assert_eq!(cid.to_digest(), digest);
+    assert_eq!(cid.to_multihash().to_digest(), digest);
 }
 
 #[test]
@@ -48,7 +48,7 @@ fn test_cid_v0() {
     let mut hasher = sha2::Sha256::new();
     hasher.update(data);
     let digest = hasher.finalize_reset().as_slice().to_vec();
-    assert_eq!(cid.to_digest(), digest);
+    assert_eq!(cid.to_multihash().to_digest(), digest);
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn test_cid_v1_base32() {
         hasher.update(b"foo");
         hasher.finalize_reset().as_slice().to_vec()
     };
-    assert_eq!(cid.to_digest(), digest);
+    assert_eq!(cid.to_multihash().to_digest(), digest);
 
     let expected_cid = "bafkreibme22gw2h7y2h7tg2fhqotaqjucnbc24deqo72b6mkl2egezxhvy";
     let cid = Cid::new_v1(Base::Base32Lower, multicodec::RAW.into(), b"foo").unwrap();
