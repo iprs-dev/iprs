@@ -26,7 +26,7 @@ pub mod rsa;
 #[cfg(feature = "secp256k1")]
 pub mod secp256k1;
 
-use crate::{keys_proto, peer_id::PeerId, Error, Result};
+use crate::{pb::key_pair_proto, peer_id::PeerId, Error, Result};
 
 // TODO: implement protobuf store for Private-key/Secret-key.
 
@@ -166,18 +166,18 @@ impl PublicKey {
         use prost::Message;
 
         let public_key = match self {
-            PublicKey::Ed25519(key) => keys_proto::PublicKey {
-                r#type: keys_proto::KeyType::Ed25519 as i32,
+            PublicKey::Ed25519(key) => key_pair_proto::PublicKey {
+                r#type: key_pair_proto::KeyType::Ed25519 as i32,
                 data: key.encode().to_vec(),
             },
             #[cfg(not(target_arch = "wasm32"))]
-            PublicKey::Rsa(key) => keys_proto::PublicKey {
-                r#type: keys_proto::KeyType::Rsa as i32,
+            PublicKey::Rsa(key) => key_pair_proto::PublicKey {
+                r#type: key_pair_proto::KeyType::Rsa as i32,
                 data: key.encode_x509()?,
             },
             #[cfg(feature = "secp256k1")]
-            PublicKey::Secp256k1(key) => keys_proto::PublicKey {
-                r#type: keys_proto::KeyType::Secp256k1 as i32,
+            PublicKey::Secp256k1(key) => key_pair_proto::PublicKey {
+                r#type: key_pair_proto::KeyType::Secp256k1 as i32,
                 data: key.encode().to_vec(),
             },
         };
@@ -193,9 +193,12 @@ impl PublicKey {
         use prost::Message;
 
         #[allow(unused_mut)] // Due to conditional compilation.
-        let mut pubkey = err_at!(DecodeError, keys_proto::PublicKey::decode(bytes))?;
+        let mut pubkey = {
+            let res = key_pair_proto::PublicKey::decode(bytes);
+            err_at!(DecodeError, res)?
+        };
 
-        let key_type = match keys_proto::KeyType::from_i32(pubkey.r#type) {
+        let key_type = match key_pair_proto::KeyType::from_i32(pubkey.r#type) {
             Some(typ) => Ok(typ),
             None => {
                 let msg = format!("unknown key type: {}", pubkey.r#type);
@@ -204,24 +207,24 @@ impl PublicKey {
         }?;
 
         match key_type {
-            keys_proto::KeyType::Ed25519 => {
+            key_pair_proto::KeyType::Ed25519 => {
                 ed25519::PublicKey::decode(&pubkey.data).map(PublicKey::Ed25519)
             }
             #[cfg(not(target_arch = "wasm32"))]
-            keys_proto::KeyType::Rsa => {
+            key_pair_proto::KeyType::Rsa => {
                 rsa::PublicKey::decode_x509(&pubkey.data).map(PublicKey::Rsa)
             }
             #[cfg(target_arch = "wasm32")]
-            keys_proto::KeyType::Rsa => {
+            key_pair_proto::KeyType::Rsa => {
                 let msg = format!("RSA disabled at compile-time");
                 err_at!(DecodeError, msg: msg)
             }
             #[cfg(feature = "secp256k1")]
-            keys_proto::KeyType::Secp256k1 => {
+            key_pair_proto::KeyType::Secp256k1 => {
                 secp256k1::PublicKey::decode(&pubkey.data).map(PublicKey::Secp256k1)
             }
             #[cfg(not(feature = "secp256k1"))]
-            keys_proto::KeyType::Secp256k1 => {
+            key_pair_proto::KeyType::Secp256k1 => {
                 let msg = format!("secp256k1 disabled at compile-time");
                 err_at!(DecodeError, msg: msg)
             }
@@ -238,8 +241,8 @@ impl PublicKey {
 mod tests {
     #[test]
     fn print_keys_proto_path() {
-        let file_path = concat!(env!("OUT_DIR"), "/keys_proto.rs");
-        println!(".... keys_proto file: {}", file_path);
+        let file_path = concat!(env!("OUT_DIR"), "/key_pair_proto.rs");
+        println!(".... key_pair_proto file: {}", file_path);
     }
 }
 

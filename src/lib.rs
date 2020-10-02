@@ -17,11 +17,8 @@ pub mod multibase;
 pub mod multicodec;
 // mod multiformat;
 pub mod multihash;
+pub mod pb;
 pub mod peer_id;
-
-mod keys_proto {
-    include!(concat!(env!("OUT_DIR"), "/keys_proto.rs"));
-}
 
 /// Type alias for Result return type, used by this package.
 pub type Result<T> = result::Result<T, Error>;

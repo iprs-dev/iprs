@@ -23,10 +23,14 @@ fn main() {
 fn build_proto() -> Result<(), String> {
     // mark for rerun
 
-    let protos = ["src/keys.proto"];
+    let protos = ["src/pb/key_pair.proto", "src/pb/peer_record.proto"];
     let includes = ["src"];
 
-    prost_build::compile_protos(&protos, &includes).map_err(|e| e.to_string())?;
+    let mut config = prost_build::Config::default();
+    config.out_dir("src/pb");
+    config
+        .compile_protos(&protos, &includes)
+        .map_err(|e| e.to_string())?;
 
     for file in protos.iter() {
         println!("cargo:rerun-if-changed={}", file)
