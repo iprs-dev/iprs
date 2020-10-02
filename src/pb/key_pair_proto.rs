@@ -1,3 +1,6 @@
+/// _Refer [peer_id spec] for details.
+///
+/// [peer_id spec] : https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PublicKey {
     #[prost(enumeration="KeyType", required, tag="1")]
@@ -5,6 +8,9 @@ pub struct PublicKey {
     #[prost(bytes, required, tag="2")]
     pub data: std::vec::Vec<u8>,
 }
+/// _Refer [peer_id spec] for details.
+///
+/// [peer_id spec] : https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PrivateKey {
     #[prost(enumeration="KeyType", required, tag="1")]
