@@ -1,6 +1,6 @@
 // Copyright (c) 2020 R Pratap Chakravarthy
 
-//! Module implement content Identifier. Refer [cid] spec for details.
+//! Module implement content Identifier. _Refer [cid] spec for details_.
 //!
 //! [cid]: https://github.com/multiformats/cid
 
@@ -13,6 +13,7 @@ use crate::{
     multibase::Multibase,
     multicodec::{self, Multicodec},
     multihash::Multihash,
+    peer_id::PeerId,
     Error, Result,
 };
 
@@ -88,11 +89,11 @@ impl Cid {
         Ok(Cid::Zero(mh))
     }
 
-    /// <cidv1> ::= <multibase-prefix><multicodec-cidv1><codec><multihash>
+    /// _cidv1 ::= multibase-prefix + multicodec-cidv1 + codec + multihash_
     ///
-    /// * _<codec>_, describes multicodec-content-type or format of the
+    /// * _codec_, describes multicodec-content-type or format of the
     ///   data being addressed.
-    /// * _<multihash>_, is SHA2-256 of data in Multihash format.
+    /// * _multihash_, is SHA2-256 of data in Multihash format.
     ///
     /// _Refer to [CIDv1] spec for details_
     ///
@@ -104,12 +105,24 @@ impl Cid {
         Ok(Cid::One(Some(base), codec, mh))
     }
 
+    /// Set the `new_base` for base-encoding, if _CID_ is constructed using V1.
     pub fn set_base_encoding(&mut self, new_base: Base) -> &mut Self {
         match self {
             Cid::Zero(_) => (),
             Cid::One(base, _, _) => *base = Some(new_base),
         }
         self
+    }
+
+    /// Create a Cid-v0 from peer-id.
+    pub fn from_peer_id_v0(&self, peer_id: PeerId) -> Self {
+        Cid::Zero(peer_id.into())
+    }
+
+    /// Create a Cid-v1 from peer-id.
+    pub fn from_peer_id_v1(&self, peer_id: PeerId) -> Self {
+        let code = multicodec::LIBP2P_KEY;
+        Cid::One(None, code.into(), peer_id.into())
     }
 
     /// Decode a base encoded CID, human readable text. CID format can
@@ -202,15 +215,17 @@ impl Cid {
     /// Encode to binary format.
     ///
     /// If value is a CIDv0 variant:
+    ///
     /// * Encoded as binary multi-hash format. The resulting bytes start with
-    ///   [0x12, 0x20, ...]
+    ///   _[0x12, 0x20, ...]_
     ///
     /// If value is a CIDv1 variant:
-    /// * _<CID-version>_ byte followed by,
-    /// * _<codec>_, unsigned_varint multicodec value, describing
+    ///
+    /// * _CID-version_ byte followed by,
+    /// * _codec_, unsigned_varint multicodec value, describing
     ///   multicodec-content-type or format of the data being addressed,
     ///   followed by,
-    /// * _<multihash>_, is SHA2-256 of data in Multihash format.
+    /// * _multihash_, is SHA2-256 of data in Multihash format.
     ///
     pub fn encode(&self) -> Result<Vec<u8>> {
         let bytes = match self {
@@ -254,10 +269,23 @@ impl Cid {
 
     /// Return hash digest, typically encoded with SHA2-256, in which case
     /// it must be a 32-byte vector.
-    pub fn to_digest(&self) -> Vec<u8> {
+    pub fn to_multihash(&self) -> Multihash {
         match self {
-            Cid::Zero(mh) => mh.to_digest(),
-            Cid::One(_, _, mh) => mh.to_digest(),
+            Cid::Zero(mh) => mh.clone(),
+            Cid::One(_, _, mh) => mh.clone(),
+        }
+    }
+
+    /// If CID is pointing to a peer-id, that is if the codec is
+    /// _LIBP2P_KEY_, return the PeerId value.
+    pub fn to_peer_id(&self) -> Option<PeerId> {
+        let code = multicodec::LIBP2P_KEY;
+        match self {
+            Cid::One(_, codec, mh) if codec.to_code() == code => {
+                //
+                Some(mh.clone().into())
+            }
+            _ => None,
         }
     }
 }
