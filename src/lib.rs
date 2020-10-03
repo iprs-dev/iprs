@@ -16,6 +16,7 @@ pub mod multiaddr;
 pub mod multibase;
 pub mod multicodec;
 // mod multiformat;
+// pub mod addr_info;
 pub mod multihash;
 pub mod pb;
 pub mod peer_id;
