@@ -3,6 +3,9 @@
 //! Package implement [multiformats] specification.
 //!
 //! [multiformats]: http://multiformats.io
+
+#![feature(box_syntax, box_patterns)]
+
 use std::{error, fmt, result};
 
 #[macro_use]

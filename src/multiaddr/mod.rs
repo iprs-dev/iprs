@@ -209,6 +209,58 @@ macro_rules! impl_multiaddr {
                     Multiaddr::None => None,
                 }
             }
+
+            /// Return multiaddr as array of components.
+            pub fn split(self) -> Result<Vec<Self>> {
+                let mut ma = match self {
+                    Multiaddr::Text ( text ) => Self::from_text(&text)?,
+                    Multiaddr::Binary ( data ) => Self::decode(&data)?.0,
+                    ma => ma
+                };
+
+                let mut components = vec![];
+                let nn = Box::new(Multiaddr::None);
+                loop {
+                    ma = match ma {
+                        $(
+                            Multiaddr::$var(val, ma) => {
+                                components.push(Multiaddr::$var(val, nn.clone()));
+                                *ma
+                            }
+                        )*
+                        Multiaddr::Ipfs(val, ma) => {
+                            components.push(Multiaddr::Ipfs(val, nn.clone()));
+                            *ma
+                        }
+                        Multiaddr::Text(_) => break,
+                        Multiaddr::Binary(_) => break,
+                        Multiaddr::None => break,
+                    };
+                }
+
+                Ok(components)
+            }
+
+            /// Join the components into single multiaddr.
+            pub fn join(mut components: Vec<Multiaddr>) -> Result<Multiaddr> {
+                let mut ma = Box::new(Multiaddr::None);
+                components.reverse();
+                for comp in components.into_iter() {
+                    ma = match comp {
+                        $(
+                            Multiaddr::$var(val, box Multiaddr::None) => {
+                                Box::new(Multiaddr::$var(val, ma))
+                            }
+                        )*
+                        Multiaddr::Ipfs(val, box Multiaddr::None) => {
+                            Box::new(Multiaddr::Ipfs(val, ma))
+                        }
+                        _ => err_at!(Invalid, msg: format!("can't joint"))?
+                    }
+                }
+
+                Ok(*ma)
+            }
         }
     );
 }
