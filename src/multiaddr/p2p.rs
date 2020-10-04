@@ -10,6 +10,10 @@ pub struct P2p {
 }
 
 impl P2p {
+    pub(crate) fn new(peer_id: PeerId) -> Self {
+        P2p { peer_id }
+    }
+
     pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
             [addr, tail @ ..] => {
@@ -54,5 +58,9 @@ impl P2p {
         data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
         data.extend_from_slice(&addr);
         Ok(data)
+    }
+
+    pub(crate) fn to_peer_id(&self) -> PeerId {
+        self.peer_id.clone()
     }
 }

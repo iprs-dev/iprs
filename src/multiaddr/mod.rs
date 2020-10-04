@@ -15,32 +15,32 @@ macro_rules! read_slice {
     };
 }
 
-mod dccp;
-mod dns;
-mod dns4;
-mod dns6;
-mod dnsaddr;
-mod garlic32;
-mod garlic64;
-mod http;
-mod https;
-mod ip4;
-mod ip6;
-mod ip6zone;
-mod onion;
-mod onion3;
-mod p2p;
-mod p2p_circuit;
-mod p2p_webrtc_direct;
-mod quic;
-mod sctp;
-mod tcp;
-mod udp;
-mod udt;
-mod unix;
-mod utp;
-mod ws;
-mod wss;
+pub(crate) mod dccp;
+pub(crate) mod dns;
+pub(crate) mod dns4;
+pub(crate) mod dns6;
+pub(crate) mod dnsaddr;
+pub(crate) mod garlic32;
+pub(crate) mod garlic64;
+pub(crate) mod http;
+pub(crate) mod https;
+pub(crate) mod ip4;
+pub(crate) mod ip6;
+pub(crate) mod ip6zone;
+pub(crate) mod onion;
+pub(crate) mod onion3;
+pub(crate) mod p2p;
+pub(crate) mod p2p_circuit;
+pub(crate) mod p2p_webrtc_direct;
+pub(crate) mod quic;
+pub(crate) mod sctp;
+pub(crate) mod tcp;
+pub(crate) mod udp;
+pub(crate) mod udt;
+pub(crate) mod unix;
+pub(crate) mod utp;
+pub(crate) mod ws;
+pub(crate) mod wss;
 
 use crate::{
     multiaddr::{
