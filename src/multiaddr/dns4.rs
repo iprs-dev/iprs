@@ -1,5 +1,4 @@
 use crate::{
-    multiaddr::Multiaddr,
     multicodec::{self, Multicodec},
     Error, Result,
 };
@@ -7,16 +6,14 @@ use crate::{
 #[derive(Clone, Eq, PartialEq)]
 pub struct Dns4 {
     addr: Vec<u8>,
-    tail: Box<Multiaddr>,
 }
 
 impl Dns4 {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
             [addr, tail @ ..] => {
                 let addr = addr.as_bytes().to_vec();
-                let tail = Box::new(Multiaddr::parse_text_parts(tail)?);
-                Dns4 { addr, tail }
+                (Dns4 { addr }, tail)
             }
             _ => err_at!(BadAddr, msg: format!("dns4 {:?}", parts))?,
         };
@@ -26,10 +23,7 @@ impl Dns4 {
 
     pub(crate) fn to_text(&self) -> Result<String> {
         use std::str::from_utf8;
-
-        let s = "/dns4".to_string();
-        let s = s + &err_at!(DecodeError, from_utf8(&self.addr))?;
-        Ok(s + &self.tail.to_text()?)
+        Ok("/dns4".to_string() + &err_at!(DecodeError, from_utf8(&self.addr))?)
     }
 
     pub(crate) fn decode(data: &[u8]) -> Result<(Self, &[u8])> {
@@ -41,12 +35,9 @@ impl Dns4 {
                 let (name, data) = read_slice!(data, (n as usize), "dns4")?;
                 (name.to_vec(), data)
             };
-            let (tail, data) = Multiaddr::decode(data)?;
 
-            let val = Dns4 {
-                addr,
-                tail: Box::new(tail),
-            };
+            let val = Dns4 { addr };
+
             (val, data)
         };
 
@@ -61,7 +52,6 @@ impl Dns4 {
         let mut data = Multicodec::from_code(multicodec::DNS4)?.encode()?;
         data.extend_from_slice(uv_encode(self.addr.len() as u128, &mut buf));
         data.extend_from_slice(&self.addr);
-        data.extend_from_slice(&self.tail.encode()?);
         Ok(data)
     }
 }

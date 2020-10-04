@@ -9,12 +9,12 @@ pub struct Unix {
 }
 
 impl Unix {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts.len() {
             n if n > 0 => {
                 // it's a path protocol (terminal).
                 let path = "/".to_string() + &parts.join("/");
-                Unix { path }
+                (Unix { path }, &parts[parts.len()..])
             }
             _ => err_at!(BadAddr, msg: format!("dns {:?}", parts))?,
         };

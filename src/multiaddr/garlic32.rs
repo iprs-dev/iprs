@@ -1,5 +1,4 @@
 use crate::{
-    multiaddr::Multiaddr,
     multicodec::{self, Multicodec},
     Error, Result,
 };
@@ -7,16 +6,14 @@ use crate::{
 #[derive(Clone, Eq, PartialEq)]
 pub struct Garlic32 {
     addr: Vec<u8>,
-    tail: Box<Multiaddr>,
 }
 
 impl Garlic32 {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
             [addr, tail @ ..] => {
                 let addr = parse_garlic32(addr)?;
-                let tail = Box::new(Multiaddr::parse_text_parts(tail)?);
-                Garlic32 { addr, tail }
+                (Garlic32 { addr }, tail)
             }
             _ => err_at!(BadAddr, msg: format!("garlic32 {:?}", parts))?,
         };
@@ -25,8 +22,7 @@ impl Garlic32 {
     }
 
     pub(crate) fn to_text(&self) -> Result<String> {
-        let s = "/garlic32".to_string() + &to_garlic32(&self.addr)?;
-        Ok(s + &self.tail.to_text()?)
+        Ok("/garlic32".to_string() + &to_garlic32(&self.addr)?)
     }
 
     pub(crate) fn decode(data: &[u8]) -> Result<(Self, &[u8])> {
@@ -39,12 +35,7 @@ impl Garlic32 {
                 (name.to_vec(), data)
             };
 
-            let (tail, data) = Multiaddr::decode(data)?;
-
-            let val = Garlic32 {
-                addr,
-                tail: Box::new(tail),
-            };
+            let val = Garlic32 { addr };
 
             (val, data)
         };
@@ -60,7 +51,6 @@ impl Garlic32 {
         let mut data = Multicodec::from_code(multicodec::GARLIC32)?.encode()?;
         data.extend_from_slice(uv_encode(self.addr.len() as u128, &mut buf));
         data.extend_from_slice(&self.addr);
-        data.extend_from_slice(&self.tail.encode()?);
         Ok(data)
     }
 }

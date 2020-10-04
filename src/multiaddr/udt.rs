@@ -1,48 +1,28 @@
 use crate::{
-    multiaddr::Multiaddr,
     multicodec::{self, Multicodec},
     Result,
 };
 
 #[derive(Clone, Eq, PartialEq)]
-pub struct Udt {
-    tail: Box<Multiaddr>,
-}
+pub struct Udt;
 
 impl Udt {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
-        let val = match parts.len() {
-            n if n > 0 => {
-                let tail = Box::new(Multiaddr::parse_text_parts(parts)?);
-                Udt { tail }
-            }
-            _ => Udt {
-                tail: Box::new(Multiaddr::None),
-            },
-        };
-
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
+        let val = (Udt, parts);
         Ok(val)
     }
 
     pub(crate) fn to_text(&self) -> Result<String> {
-        Ok("/udt".to_string() + &self.tail.to_text()?)
+        Ok("/udt".to_string())
     }
 
     pub(crate) fn decode(data: &[u8]) -> Result<(Self, &[u8])> {
-        let val = {
-            let (tail, data) = Multiaddr::decode(data)?;
-            let val = Udt {
-                tail: Box::new(tail),
-            };
-            (val, data)
-        };
-
+        let val = (Udt, data);
         Ok(val)
     }
 
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
-        let mut data = Multicodec::from_code(multicodec::UDT)?.encode()?;
-        data.extend_from_slice(&self.tail.encode()?);
+        let data = Multicodec::from_code(multicodec::UDT)?.encode()?;
         Ok(data)
     }
 }

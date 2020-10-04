@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 
 use crate::{
-    multiaddr::Multiaddr,
     multicodec::{self, Multicodec},
     Error, Result,
 };
@@ -9,16 +8,14 @@ use crate::{
 #[derive(Clone, Eq, PartialEq)]
 pub struct Tcp {
     port: u16,
-    tail: Box<Multiaddr>,
 }
 
 impl Tcp {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
             [port, tail @ ..] => {
                 let port: u16 = err_at!(BadAddr, port.parse())?;
-                let tail = Box::new(Multiaddr::parse_text_parts(tail)?);
-                Tcp { port, tail }
+                (Tcp { port }, tail)
             }
             _ => err_at!(BadAddr, msg: format!("tcp {:?}", parts))?,
         };
@@ -27,7 +24,7 @@ impl Tcp {
     }
 
     pub(crate) fn to_text(&self) -> Result<String> {
-        Ok("/tcp".to_string() + &self.port.to_string() + &self.tail.to_text()?)
+        Ok("/tcp".to_string() + &self.port.to_string())
     }
 
     pub(crate) fn decode(data: &[u8]) -> Result<(Self, &[u8])> {
@@ -35,12 +32,7 @@ impl Tcp {
             let (bs, data) = read_slice!(data, 2, "tcp")?;
             let port: u16 = u16::from_be_bytes(bs.try_into().unwrap());
 
-            let (tail, data) = Multiaddr::decode(data)?;
-
-            let val = Tcp {
-                port,
-                tail: Box::new(tail),
-            };
+            let val = Tcp { port };
 
             (val, data)
         };
@@ -51,7 +43,6 @@ impl Tcp {
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
         let mut data = Multicodec::from_code(multicodec::TCP)?.encode()?;
         data.extend_from_slice(&self.port.to_be_bytes());
-        data.extend_from_slice(&self.tail.encode()?);
         Ok(data)
     }
 }

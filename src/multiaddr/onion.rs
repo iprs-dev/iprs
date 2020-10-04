@@ -1,7 +1,6 @@
 use std::convert::TryInto;
 
 use crate::{
-    multiaddr::Multiaddr,
     multicodec::{self, Multicodec},
     Error, Result,
 };
@@ -10,16 +9,14 @@ use crate::{
 pub struct Onion {
     hash: Vec<u8>,
     port: u16,
-    tail: Box<Multiaddr>,
 }
 
 impl Onion {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
             [addr, tail @ ..] => {
                 let (hash, port) = parse_onion_addr(addr)?;
-                let tail = Box::new(Multiaddr::parse_text_parts(tail)?);
-                Onion { hash, port, tail }
+                (Onion { hash, port }, tail)
             }
             _ => err_at!(BadAddr, msg: format!("onion {:?}", parts))?,
         };
@@ -28,8 +25,7 @@ impl Onion {
     }
 
     pub(crate) fn to_text(&self) -> Result<String> {
-        let s = "/onion".to_string() + &to_onion_text(&self.hash, self.port)?;
-        Ok(s + &self.tail.to_text()?)
+        Ok("/onion".to_string() + &to_onion_text(&self.hash, self.port)?)
     }
 
     pub(crate) fn decode(data: &[u8]) -> Result<(Self, &[u8])> {
@@ -41,12 +37,9 @@ impl Onion {
                 (port, data)
             };
 
-            let (tail, data) = Multiaddr::decode(data)?;
-
             let val = Onion {
                 hash: hash.to_vec(),
                 port,
-                tail: Box::new(tail),
             };
 
             (val, data)
@@ -59,7 +52,6 @@ impl Onion {
         let mut data = Multicodec::from_code(multicodec::ONION)?.encode()?;
         data.extend_from_slice(&self.hash);
         data.extend_from_slice(&self.port.to_be_bytes());
-        data.extend_from_slice(&self.tail.encode()?);
         Ok(data)
     }
 }

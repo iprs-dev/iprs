@@ -1,5 +1,4 @@
 use crate::{
-    multiaddr::Multiaddr,
     multicodec::{self, Multicodec},
     peer_id::PeerId,
     Error, Result,
@@ -8,16 +7,14 @@ use crate::{
 #[derive(Clone, Eq, PartialEq)]
 pub struct P2p {
     peer_id: PeerId,
-    tail: Box<Multiaddr>,
 }
 
 impl P2p {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
             [addr, tail @ ..] => {
                 let peer_id = PeerId::from_text(addr)?;
-                let tail = Box::new(Multiaddr::parse_text_parts(tail)?);
-                P2p { peer_id, tail }
+                (P2p { peer_id }, tail)
             }
             _ => err_at!(BadAddr, msg: format!("p2p {:?}", parts))?,
         };
@@ -26,8 +23,7 @@ impl P2p {
     }
 
     pub(crate) fn to_text(&self) -> Result<String> {
-        let s = "/p2p".to_string() + &self.peer_id.to_base58btc()?;
-        Ok(s + &self.tail.to_text()?)
+        Ok("/p2p".to_string() + &self.peer_id.to_base58btc()?)
     }
 
     pub(crate) fn decode(data: &[u8]) -> Result<(Self, &[u8])> {
@@ -40,12 +36,7 @@ impl P2p {
             };
             let (peer_id, _) = PeerId::decode(addr)?;
 
-            let (tail, data) = Multiaddr::decode(data)?;
-
-            let val = P2p {
-                peer_id,
-                tail: Box::new(tail),
-            };
+            let val = P2p { peer_id };
             (val, data)
         };
 
@@ -62,7 +53,6 @@ impl P2p {
         let mut data = Multicodec::from_code(multicodec::P2P)?.encode()?;
         data.extend_from_slice(uv_encode(addr.len() as u128, &mut buf));
         data.extend_from_slice(&addr);
-        data.extend_from_slice(&self.tail.encode()?);
         Ok(data)
     }
 }

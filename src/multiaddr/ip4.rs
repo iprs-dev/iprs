@@ -1,7 +1,6 @@
 use std::net;
 
 use crate::{
-    multiaddr::Multiaddr,
     multicodec::{self, Multicodec},
     Error, Result,
 };
@@ -9,16 +8,14 @@ use crate::{
 #[derive(Clone, Eq, PartialEq)]
 pub struct Ip4 {
     addr: net::Ipv4Addr,
-    tail: Box<Multiaddr>,
 }
 
 impl Ip4 {
-    pub(crate) fn from_text(parts: &[&str]) -> Result<Self> {
+    pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
             [addr, tail @ ..] => {
                 let addr: net::Ipv4Addr = err_at!(BadAddr, addr.parse())?;
-                let tail = Box::new(Multiaddr::parse_text_parts(tail)?);
-                Ip4 { addr, tail }
+                (Ip4 { addr }, tail)
             }
             _ => err_at!(BadAddr, msg: format!("ip4 {:?}", parts))?,
         };
@@ -27,7 +24,7 @@ impl Ip4 {
     }
 
     pub(crate) fn to_text(&self) -> Result<String> {
-        Ok("/ip4".to_string() + &self.addr.to_string() + &self.tail.to_text()?)
+        Ok("/ip4".to_string() + &self.addr.to_string())
     }
 
     pub(crate) fn decode(data: &[u8]) -> Result<(Self, &[u8])> {
@@ -35,12 +32,7 @@ impl Ip4 {
             let (bs, data) = read_slice!(data, 4, "ip4")?;
             let addr = net::Ipv4Addr::new(bs[0], bs[1], bs[2], bs[3]);
 
-            let (tail, data) = Multiaddr::decode(data)?;
-
-            let val = Ip4 {
-                addr,
-                tail: Box::new(tail),
-            };
+            let val = Ip4 { addr };
 
             (val, data)
         };
@@ -51,7 +43,6 @@ impl Ip4 {
     pub(crate) fn encode(&self) -> Result<Vec<u8>> {
         let mut data = Multicodec::from_code(multicodec::IP4)?.encode()?;
         data.extend_from_slice(&self.addr.octets());
-        data.extend_from_slice(&self.tail.encode()?);
         Ok(data)
     }
 }

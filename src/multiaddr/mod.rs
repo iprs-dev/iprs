@@ -73,9 +73,9 @@ macro_rules! impl_multiaddr {
             Binary(Vec<u8>), // unparsed multi-addr in binary format.
             $(
                 #[$doc]
-                $var($type),
+                $var($type, Box<Self>),
             )*
-            Ipfs(P2p),
+            Ipfs(P2p, Box<Self>),
             None,
         }
 
@@ -92,29 +92,38 @@ macro_rules! impl_multiaddr {
                 } else if parts[1..].len() == 0 {
                     err_at!(BadAddr, msg: format!("empty multiaddr {}", text))
                 } else {
-                    Self::parse_text_parts(&parts[1..])
+                    match Self::parse_text_parts(&parts[1..])? {
+                        (ma, []) => Ok(ma),
+                        (_, _) => {
+                            let msg = format!("invalid multiaddr {:?}", text);
+                            err_at!(BadAddr, msg: msg)
+                        }
+                    }
                 }
             }
 
-            pub(crate) fn parse_text_parts(parts: &[&str]) -> Result<Multiaddr> {
-                let maddr = match parts {
+            pub(crate) fn parse_text_parts<'a, 'b>(parts: &'a [&'b str]) -> Result<(Multiaddr, &'a [&'b str])> {
+                let (maddr, tail) = match parts {
+                    [] => (Multiaddr::None, parts),
                     $(
                         [$name, ..] => {
-                            let val = $type::from_text(&parts[1..])?;
-                            Multiaddr::$var(val)
+                            let (val, tail) = $type::from_text(&parts[1..])?;
+                            let (ma, tail) = Self::parse_text_parts(tail)?;
+                            (Multiaddr::$var(val, Box::new(ma)), tail)
                         }
                     )*
                     ["ipfs", ..] => {
-                        let val = P2p::from_text(&parts[1..])?;
-                        Multiaddr::P2p(val)
+                        let (val, tail) = P2p::from_text(&parts[1..])?;
+                        let (ma, tail) = Self::parse_text_parts(tail)?;
+                        (Multiaddr::P2p(val, Box::new(ma)), tail)
                     }
                     parts => {
-                        let msg = format!("invalid multiaddr components {:?}", parts);
+                        let msg = format!("invalid multiaddr {:?}", parts);
                         err_at!(BadAddr, msg: msg)?
                     }
                 };
 
-                Ok(maddr)
+                Ok((maddr, tail))
             }
 
             /// Convert this multi-address into text format.
@@ -126,13 +135,14 @@ macro_rules! impl_multiaddr {
                         maddr.to_text()?
                     }
                     $(
-                        Multiaddr::$var(val) => val.to_text()?,
+                        Multiaddr::$var(val, tail) => {
+                            val.to_text()? + &tail.to_text()?
+                        }
                     )*
-                    Multiaddr::Ipfs(val) => val.to_text()?,
-                    Multiaddr::None => {
-                        let msg = format!("empty multiaddr");
-                        err_at!(Invalid, msg: msg)?
+                    Multiaddr::Ipfs(val, tail) => {
+                        val.to_text()? + &tail.to_text()?
                     }
+                    Multiaddr::None => "".to_string(),
                 };
 
                 Ok(text)
@@ -141,13 +151,18 @@ macro_rules! impl_multiaddr {
             /// Parse binary formated multi-address. Refer to
             /// [spec](https://multiformats.io/multiaddr/) for details.
             pub fn decode(data: &[u8]) -> Result<(Multiaddr, &[u8])> {
+                if data.len() == 0 {
+                    return Ok((Multiaddr::None, data))
+                }
+
                 let (codec, data) = Multicodec::decode(data)?;
 
                 let (ma, data) = match codec.to_code() {
                     $(
                         $code => {
                             let (val, data) = $type::decode(data)?;
-                            (Multiaddr::$var(val), data)
+                            let (ma, data) = Self::decode(data)?;
+                            (Multiaddr::$var(val, Box::new(ma)), data)
                         }
                     )*
                     code => {
@@ -165,13 +180,18 @@ macro_rules! impl_multiaddr {
                     Multiaddr::Text ( text ) => Self::from_text(text)?.encode()?,
                     Multiaddr::Binary ( data ) => data.clone(),
                     $(
-                        Multiaddr::$var(val) => val.encode()?,
+                        Multiaddr::$var(val, tail) => {
+                            let mut data = val.encode()?;
+                            data.extend_from_slice(&tail.encode()?);
+                            data
+                        }
                     )*
-                    Multiaddr::Ipfs(val) => val.encode()?,
-                    Multiaddr::None => {
-                        let msg = format!("empty multiaddr");
-                        err_at!(Invalid, msg: msg)?
+                    Multiaddr::Ipfs(val, tail) => {
+                        let mut data = val.encode()?;
+                        data.extend_from_slice(&tail.encode()?);
+                        data
                     }
+                    Multiaddr::None => vec![],
                 };
 
                 Ok(data)
