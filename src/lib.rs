@@ -23,6 +23,7 @@ pub mod addr_info;
 pub mod multihash;
 pub mod pb;
 pub mod peer_id;
+pub mod peer_record;
 
 /// Type alias for Result return type, used by this package.
 pub type Result<T> = result::Result<T, Error>;

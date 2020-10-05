@@ -83,4 +83,12 @@ impl AddrInfo {
 
         Ok(addrs)
     }
+
+    pub fn to_peer_id(&self) -> PeerId {
+        self.peer_id.clone()
+    }
+
+    pub fn to_multiaddrs(&self) -> Vec<Multiaddr> {
+        self.addrs.clone()
+    }
 }
