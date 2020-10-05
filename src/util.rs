@@ -26,45 +26,40 @@
 ///
 #[macro_export]
 macro_rules! err_at {
-    ($e:expr) => {{
-        use Error::*;
-
-        let p = format!("{}:{}", file!(), line!());
-        match $e {
-            Ok(val) => Ok(val),
-            Err(Fatal(_, s)) => Err(Fatal(p, s)),
-            Err(IOError(_, s)) => Err(IOError(p, s)),
-            Err(Invalid(_, s)) => Err(Invalid(p, s)),
-            Err(DecodeError(_, s)) => Err(DecodeError(p, s)),
-            Err(EncodeError(_, s)) => Err(EncodeError(p, s)),
-            Err(SigningError(_, s)) => Err(SigningError(p, s)),
-            Err(BadInput(_, s)) => Err(BadInput(p, s)),
-            Err(BadCodec(_, s)) => Err(BadCodec(p, s)),
-            Err(BadAddr(_, s)) => Err(BadAddr(p, s)),
-            Err(HashFail(_, s)) => Err(HashFail(p, s)),
-            Err(NotImplemented(_, s)) => Err(NotImplemented(p, s)),
-        }
-    }};
     ($v:ident, msg:$m:expr) => {{
+        use log::error;
+
         let prefix = format!("{}:{}", file!(), line!());
-        Err(Error::$v(prefix, format!("{}", $m)))
+        let err = Error::$v(prefix, format!("{}", $m));
+        error!(target: "libp2p", "{}", err);
+        Err(err)
     }};
-    ($v:ident, $e:expr) => {
+    ($v:ident, $e:expr) => {{
+        use log::error;
+
         match $e {
             Ok(val) => Ok(val),
             Err(err) => {
                 let prefix = format!("{}:{}", file!(), line!());
-                Err(Error::$v(prefix, format!("{}", err)))
+                let err = Error::$v(prefix, format!("{}", err));
+                error!(target: "libp2p", "{}", err);
+
+                Err(err)
             }
         }
-    };
-    ($v:ident, $e:expr, $m:expr) => {
+    }};
+    ($v:ident, $e:expr, $m:expr) => {{
+        use log::error;
+
         match $e {
             Ok(val) => Ok(val),
             Err(err) => {
                 let prefix = format!("{}:{}", file!(), line!());
-                Err(Error::$v(prefix, format!("{} {}", $m, err)))
+                let err = Error::$v(prefix, format!("{} {}", $m, err));
+                error!(target: "libp2p", "{}", err);
+
+                Err(err)
             }
         }
-    };
+    }};
 }

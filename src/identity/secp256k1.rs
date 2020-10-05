@@ -124,9 +124,9 @@ impl SecretKey {
         let sk_bytes = sk.as_mut();
         let secret_key = match secp256k1::SecretKey::parse_slice(&*sk_bytes) {
             Ok(secret_key) => Ok(secret_key),
-            Err(err) => {
+            err @ Err(_) => {
                 let msg = format!("failed to parse secp256k1 secret key");
-                err_at!(DecodeError, Err(err), msg)
+                err_at!(DecodeError, err, msg)
             }
         }?;
 
@@ -144,9 +144,9 @@ impl SecretKey {
         let val: Vec<DerObject> = {
             match FromDerObject::deserialize(der.as_mut().iter()) {
                 Ok(val) => Ok(val),
-                Err(err) => {
+                err @ Err(_) => {
                     let msg = format!("Secp256k1 DER ECPrivateKey");
-                    err_at!(DecodeError, Err(err), msg)
+                    err_at!(DecodeError, err, msg)
                 }
             }?
         };
@@ -154,14 +154,17 @@ impl SecretKey {
         der.as_mut().zeroize();
 
         let sk_val = match val.into_iter().nth(1) {
-            Some(val) => Ok(val),
+            Some(val) => val,
             None => {
                 let msg = format!("Not enough elements in DER");
-                err_at!(Err(Error::DecodeError("".to_string(), msg)))
+                err_at!(DecodeError, msg: msg)?
             }
-        }?;
+        };
 
-        let mut sk_bytes: Vec<u8> = err_at!(DecodeError, FromDerObject::from_der_object(sk_val))?;
+        let mut sk_bytes: Vec<u8> = {
+            let res = FromDerObject::from_der_object(sk_val);
+            err_at!(DecodeError, res)?
+        };
         let sk = SecretKey::from_bytes(&mut sk_bytes)?;
         sk_bytes.zeroize();
 
@@ -186,9 +189,9 @@ impl SecretKey {
     fn sign_hash(&self, msg: &[u8]) -> Result<Vec<u8>> {
         let m = match Message::parse_slice(msg) {
             Ok(m) => Ok(m),
-            Err(err) => {
+            err @ Err(_) => {
                 let msg = format!("failed to parse secp256k1 digest");
-                err_at!(SigningError, Err(err), msg)
+                err_at!(SigningError, err, msg)
             }
         }?;
         Ok(secp256k1::sign(&m, &self.secret_key)
