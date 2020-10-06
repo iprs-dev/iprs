@@ -21,6 +21,7 @@ pub mod multicodec;
 // mod multiformat;
 pub mod addr_info;
 pub mod multihash;
+pub mod net_addr;
 pub mod pb;
 pub mod peer_id;
 pub mod peer_record;
@@ -38,6 +39,7 @@ pub enum Error {
     Invalid(String, String),
     DecodeError(String, String),
     EncodeError(String, String),
+    DnsError(String, String),
     SigningError(String, String),
     BadInput(String, String),
     BadCodec(String, String),
@@ -56,6 +58,7 @@ impl fmt::Display for Error {
             Invalid(p, msg) => write!(f, "{} Invalid: {}", p, msg),
             DecodeError(p, msg) => write!(f, "{} DecodeError: {}", p, msg),
             EncodeError(p, msg) => write!(f, "{} EncodeError: {}", p, msg),
+            DnsError(p, msg) => write!(f, "{} DnsError: {}", p, msg),
             SigningError(p, msg) => write!(f, "{} SigningError: {}", p, msg),
             BadInput(p, msg) => write!(f, "{} BadInput: {}", p, msg),
             BadCodec(p, msg) => write!(f, "{} BadCodec: {}", p, msg),

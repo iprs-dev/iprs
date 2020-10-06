@@ -10,6 +10,12 @@ pub struct Ip4 {
     addr: net::Ipv4Addr,
 }
 
+impl From<net::Ipv4Addr> for Ip4 {
+    fn from(addr: net::Ipv4Addr) -> Self {
+        Ip4 { addr }
+    }
+}
+
 impl Ip4 {
     pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
@@ -44,5 +50,9 @@ impl Ip4 {
         let mut data = Multicodec::from_code(multicodec::IP4)?.encode()?;
         data.extend_from_slice(&self.addr.octets());
         Ok(data)
+    }
+
+    pub(crate) fn to_addr(&self) -> net::Ipv4Addr {
+        self.addr.clone()
     }
 }

@@ -10,6 +10,12 @@ pub struct Ip6 {
     addr: net::Ipv6Addr,
 }
 
+impl From<net::Ipv6Addr> for Ip6 {
+    fn from(addr: net::Ipv6Addr) -> Self {
+        Ip6 { addr }
+    }
+}
+
 impl Ip6 {
     pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
@@ -48,5 +54,9 @@ impl Ip6 {
         let mut data = Multicodec::from_code(multicodec::IP6)?.encode()?;
         data.extend_from_slice(&self.addr.octets());
         Ok(data)
+    }
+
+    pub(crate) fn to_addr(&self) -> net::Ipv6Addr {
+        self.addr.clone()
     }
 }

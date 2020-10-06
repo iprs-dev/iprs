@@ -112,6 +112,21 @@ macro_rules! impl_multiaddr {
                             (Multiaddr::$var(val, Box::new(ma)), tail)
                         }
                     )*
+                    ["ip", ..] => {
+                        // first try parsing it for ip4
+                        match Ip4::from_text(&parts[1..]) {
+                            Ok((val, tail)) => {
+                                let (ma, tail) = Self::parse_text_parts(tail)?;
+                                (Multiaddr::Ip4(val, Box::new(ma)), tail)
+                            }
+                            Err(_) => {
+                                // then try parsing it for ip6
+                                let (val, tail) = Ip6::from_text(&parts[1..])?;
+                                let (ma, tail) = Self::parse_text_parts(tail)?;
+                                (Multiaddr::Ip6(val, Box::new(ma)), tail)
+                            }
+                        }
+                    }
                     ["ipfs", ..] => {
                         let (val, tail) = P2p::from_text(&parts[1..])?;
                         let (ma, tail) = Self::parse_text_parts(tail)?;

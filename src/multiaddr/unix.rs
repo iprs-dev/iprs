@@ -1,3 +1,5 @@
+use std::{convert::TryFrom, path};
+
 use crate::{
     multicodec::{self, Multicodec},
     Error, Result,
@@ -8,12 +10,45 @@ pub struct Unix {
     path: String,
 }
 
+impl From<String> for Unix {
+    fn from(path: String) -> Self {
+        Unix { path }
+    }
+}
+
+impl<'a> From<&'a str> for Unix {
+    fn from(path: &'a str) -> Self {
+        Unix {
+            path: path.to_string(),
+        }
+    }
+}
+
+impl<'a> TryFrom<&'a path::Path> for Unix {
+    type Error = Error;
+
+    fn try_from(path: &'a path::Path) -> Result<Unix> {
+        match path.to_str() {
+            Some(path) => Ok(path.into()),
+            None => {
+                let msg = format!("unix net path not str {:?}", path);
+                err_at!(Invalid, msg: msg)
+            }
+        }
+    }
+}
+
 impl Unix {
     pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts.len() {
             n if n > 0 => {
                 // it's a path protocol (terminal).
-                let path = "/".to_string() + &parts.join("/");
+                let path = if cfg!(windows) {
+                    // TODO: should do something special here ?
+                    "/".to_string() + &parts.join("/")
+                } else {
+                    "/".to_string() + &parts.join("/")
+                };
                 (Unix { path }, &parts[parts.len()..])
             }
             _ => err_at!(BadAddr, msg: format!("dns {:?}", parts))?,
@@ -49,5 +84,9 @@ impl Unix {
         data.extend_from_slice(uv_encode(self.path.len() as u128, &mut buf));
         data.extend_from_slice(self.path.as_bytes());
         Ok(data)
+    }
+
+    pub(crate) fn to_path(&self) -> String {
+        self.path.clone()
     }
 }

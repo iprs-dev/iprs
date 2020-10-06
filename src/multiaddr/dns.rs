@@ -55,4 +55,9 @@ impl Dns {
         data.extend_from_slice(&self.addr);
         Ok(data)
     }
+
+    pub(crate) fn as_str(&self) -> Result<&str> {
+        use std::str::from_utf8;
+        err_at!(DecodeError, from_utf8(&self.addr))
+    }
 }

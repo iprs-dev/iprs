@@ -10,6 +10,12 @@ pub struct Udp {
     port: u16,
 }
 
+impl From<u16> for Udp {
+    fn from(port: u16) -> Self {
+        Udp { port }
+    }
+}
+
 impl Udp {
     pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
@@ -44,5 +50,9 @@ impl Udp {
         let mut data = Multicodec::from_code(multicodec::UDP)?.encode()?;
         data.extend_from_slice(&self.port.to_be_bytes());
         Ok(data)
+    }
+
+    pub(crate) fn to_port(&self) -> u16 {
+        self.port
     }
 }

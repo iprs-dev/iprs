@@ -10,6 +10,12 @@ pub struct Tcp {
     port: u16,
 }
 
+impl From<u16> for Tcp {
+    fn from(port: u16) -> Self {
+        Tcp { port }
+    }
+}
+
 impl Tcp {
     pub(crate) fn from_text<'a, 'b>(parts: &'a [&'b str]) -> Result<(Self, &'a [&'b str])> {
         let val = match parts {
@@ -44,5 +50,9 @@ impl Tcp {
         let mut data = Multicodec::from_code(multicodec::TCP)?.encode()?;
         data.extend_from_slice(&self.port.to_be_bytes());
         Ok(data)
+    }
+
+    pub(crate) fn to_port(&self) -> u16 {
+        self.port
     }
 }
