@@ -5,7 +5,7 @@ use crate::{
     Error, Result,
 };
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Onion {
     hash: Vec<u8>,
     port: u16,

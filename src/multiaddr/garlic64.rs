@@ -3,7 +3,7 @@ use crate::{
     Error, Result,
 };
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Garlic64 {
     addr: Vec<u8>,
 }

@@ -3,7 +3,7 @@ use crate::{
     Result,
 };
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct P2pWebRtcDirect;
 
 impl P2pWebRtcDirect {

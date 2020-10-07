@@ -5,7 +5,7 @@ use crate::{
     Error, Result,
 };
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Ip4 {
     addr: net::Ipv4Addr,
 }

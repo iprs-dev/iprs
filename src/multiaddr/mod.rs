@@ -67,7 +67,7 @@ macro_rules! impl_multiaddr {
         /// * Address encoded in text format.
         /// * Or parsed from binary/text format and held as Ip4, Tcp, Udp,
         ///   Quic etc..
-        #[derive(Clone, Eq, PartialEq)]
+        #[derive(Clone, Eq, PartialEq, Debug)]
         pub enum Multiaddr {
             Text(String),    // unparsed multi-addr in text format.
             Binary(Vec<u8>), // unparsed multi-addr in binary format.
@@ -278,6 +278,38 @@ macro_rules! impl_multiaddr {
             }
         }
     );
+}
+
+impl Multiaddr {
+    /// IsThinWaist returns whether a Multiaddr starts with "Thin Waist"
+    /// Protocols. This means: /{IP4, IP6}[/{TCP, UDP}]
+    pub fn is_thin_wait(&self) -> bool {
+        use Multiaddr::*;
+
+        let ma = match self {
+            Ip4(_, box tail) => tail.clone(),
+            Ip6(_, box tail) => tail.clone(),
+            _ => return false,
+        };
+        match ma {
+            Tcp(_, _) => true,
+            Udp(_, _) => true,
+            Multiaddr::None => true,
+            _ => false,
+        }
+    }
+
+    pub fn parse(self) -> Result<Self> {
+        use Multiaddr::*;
+
+        let val = match self {
+            Text(text) => Multiaddr::from_text(&text)?,
+            Binary(data) => Multiaddr::decode(&data)?,
+            _ => self,
+        };
+
+        Ok(val)
+    }
 }
 
 impl_multiaddr![
