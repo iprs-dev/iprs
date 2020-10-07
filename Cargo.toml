@@ -10,8 +10,12 @@ readme = "README.md"
 documentation = "https://docs.rs/multiformats/"
 edition = "2018"
 
+[[bin]]
+name = "ipfs"
+
 [dependencies]
-log = { version = "0.4", features = ["max_level_off", "release_max_level_off"] }
+log = { version = "0.4", features = ["max_level_trace", "release_max_level_debug"] }
+simplelog = "0.7.5"
 dns-lookup = "1.0.4"
 prost = "0.6.1"
 unsigned-varint = "0.5.1"
