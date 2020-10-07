@@ -18,7 +18,7 @@ pub enum NetAddr {
 
 impl NetAddr {
     pub fn from_multiaddr(ma: Multiaddr) -> Result<NetAddr> {
-        let netaddr = match ma.parse() {
+        let netaddr = match ma.parse()? {
             Multiaddr::Ip4(ipval, box Multiaddr::Tcp(tcpval, _)) => {
                 let ip = ipval.to_addr();
                 let addr = net::SocketAddr::from((ip, tcpval.to_port()));
@@ -107,7 +107,7 @@ impl NetAddr {
                 };
                 NetAddr::Unix(addr)
             }
-            _ => {
+            ma => {
                 let s = ma.to_text()?;
                 err_at!(Invalid, msg: format!("bad net addr {}", s))?
             }

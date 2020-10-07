@@ -304,7 +304,7 @@ impl Multiaddr {
 
         let val = match self {
             Text(text) => Multiaddr::from_text(&text)?,
-            Binary(data) => Multiaddr::decode(&data)?,
+            Binary(data) => Multiaddr::decode(&data)?.0,
             _ => self,
         };
 

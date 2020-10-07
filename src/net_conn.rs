@@ -63,7 +63,7 @@ impl Listener {
                 let addr = err_at!(IOError, listn.local_addr())?;
                 NetAddr::Tcp(addr)
             }
-            Listener::Unix(listn) => {
+            Listener::Unix(_listn) => {
                 todo!()
                 //let addr = err_at!(IOError, listn.local_addr())?;
                 //NetAddr::Unix(addr)
