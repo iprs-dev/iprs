@@ -22,6 +22,7 @@ pub mod multicodec;
 pub mod addr_info;
 pub mod multihash;
 pub mod net_addr;
+pub mod net_conn;
 pub mod pb;
 pub mod peer_id;
 pub mod peer_record;
