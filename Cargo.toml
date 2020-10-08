@@ -1,7 +1,7 @@
 [package]
-name = "multiformats"
-description = "Implementation of the Multiformats for libp2p"
-repository = "https://github.com/prataprc/multiformats"
+name = "iprs"
+description = "Implementation of the libp2p / ipfs"
+repository = "https://github.com/prataprc/iprs"
 keywords = ["multiformats", "libp2p"]
 version = "0.0.3"
 authors = ["prataprc <prataprc@gmail.com>"]
@@ -12,10 +12,10 @@ edition = "2018"
 
 [[bin]]
 name = "ipfs"
+required-features = ["build-ipfs"]
 
 [dependencies]
 log = { version = "0.4", features = ["max_level_trace", "release_max_level_debug"] }
-simplelog = "0.7.5"
 dns-lookup = "1.0.4"
 prost = "0.6.1"
 unsigned-varint = "0.5.1"
@@ -41,6 +41,11 @@ libsecp256k1 = { version = "0.3.5", optional = true }
 bs58 = "0.3.0"
 data-encoding = "2.3.0"
 data-encoding-macro = { version = "0.1.8", default-features = false }
+crossbeam-channel = { version = "0.4.4" }
+ctrlc = { version = "3.1.6"}
+
+simplelog = { version = "0.7.5", optional = true }
+structopt = { version = "0.3.18", optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ring = { version = "0.16.9", features = ["alloc", "std"], default-features = false }
@@ -57,3 +62,4 @@ prost-build = "0.6.1"
 [features]
 default = ["secp256k1"]
 secp256k1 = ["libsecp256k1"]
+build-ipfs = ["structopt", "simplelog"]
