@@ -14,18 +14,21 @@ extern crate data_encoding_macro;
 #[macro_use]
 mod util;
 pub mod cid;
-pub mod identity;
-pub mod multiaddr;
 pub mod multibase;
 pub mod multicodec;
 // mod multiformat;
 pub mod addr_info;
-pub mod multihash;
 pub mod net_addr;
 pub mod net_conn;
 pub mod pb;
 pub mod peer_id;
 pub mod peer_record;
+
+// modules that has its own sub-directories
+pub mod identity;
+pub mod ipfsd;
+pub mod multiaddr;
+pub mod multihash;
 
 /// Type alias for Result return type, used by this package.
 pub type Result<T> = result::Result<T, Error>;
@@ -37,6 +40,8 @@ pub type Result<T> = result::Result<T, Error>;
 pub enum Error {
     Fatal(String, String),
     IOError(String, String),
+    IPCFail(String, String),
+    ThreadFail(String, String),
     Invalid(String, String),
     DecodeError(String, String),
     EncodeError(String, String),
@@ -56,6 +61,8 @@ impl fmt::Display for Error {
         match self {
             Fatal(p, msg) => write!(f, "{} Fatal: {}", p, msg),
             IOError(p, msg) => write!(f, "{} IOError: {}", p, msg),
+            IPCFail(p, msg) => write!(f, "{} IPCFail: {}", p, msg),
+            ThreadFail(p, msg) => write!(f, "{} ThreadFail: {}", p, msg),
             Invalid(p, msg) => write!(f, "{} Invalid: {}", p, msg),
             DecodeError(p, msg) => write!(f, "{} DecodeError: {}", p, msg),
             EncodeError(p, msg) => write!(f, "{} EncodeError: {}", p, msg),
