@@ -1,5 +1,11 @@
 // Copyright (c) 2020 R Pratap Chakravarthy
 
+use crossbeam_channel as cbm;
+
+use std::time;
+
+use crate::{Error, Result};
+
 /// Short form to compose Error values.
 ///
 /// Here are few possible ways:
@@ -62,4 +68,16 @@ macro_rules! err_at {
             }
         }
     }};
+}
+
+pub fn ctrl_channel() -> Result<cbm::Receiver<time::Instant>> {
+    let (sender, receiver) = cbm::bounded(100);
+    err_at!(
+        SysFail,
+        ctrlc::set_handler(move || {
+            let _ = sender.send(time::Instant::now());
+        })
+    )?;
+
+    Ok(receiver)
 }
