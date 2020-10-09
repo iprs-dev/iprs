@@ -1,5 +1,3 @@
-// Copyright (c) 2020 R Pratap Chakravarthy
-
 //! Module implement [multicodec] specification.
 //!
 //! Multicodec is an agreed-upon codec table. It is designed for

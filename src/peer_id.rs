@@ -1,5 +1,3 @@
-// Copyright (c) 2020 R Pratap Chakravarthy
-
 //! Module implement Peer ID for libp2p network. _Refer [peer-id] spec
 //! for details_.
 //!

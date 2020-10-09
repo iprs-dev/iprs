@@ -1,8 +1,3 @@
-//! Module implement [multiaddr](https://multiformats.io/multiaddr/)
-//! specification.
-
-// Copyright (c) 2020 R Pratap Chakravarthy
-
 #[macro_export]
 macro_rules! read_slice {
     ($data:expr, $n:expr, $prefix:expr) => {

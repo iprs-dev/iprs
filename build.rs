@@ -1,5 +1,3 @@
-// Copyright (c) 2020 R Pratap Chakravarthy
-
 use std::process;
 
 macro_rules! check_exit {

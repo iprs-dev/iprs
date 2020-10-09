@@ -1,5 +1,3 @@
-// Copyright (c) 2020 R Pratap Chakravarthy
-
 use super::*;
 use multibase::Base;
 

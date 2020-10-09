@@ -1,5 +1,3 @@
-// Copyright (c) 2020 R Pratap Chakravarthy
-
 //! Module implement content Identifier. _Refer [cid] spec for details_.
 //!
 //! [cid]: https://github.com/multiformats/cid
