@@ -139,7 +139,7 @@ impl Cid {
     pub fn from_text(text: &str) -> Result<Cid> {
         let mut chars = text.chars();
         let cid = match (chars.next(), chars.next()) {
-            (Some('Q'), Some('m')) | (Some('1'), Some(_)) => {
+            (Some('Q'), Some('m')) | (Some('1'), Some(_)) if text.len() == 46 => {
                 // legacy format v0.
                 let bytes = {
                     let res = bs58::decode(text.as_bytes()).into_vec();
@@ -147,6 +147,9 @@ impl Cid {
                 };
                 let (mh, _) = Multihash::decode(&bytes)?;
                 Cid::Zero(mh)
+            }
+            (Some('Q'), Some('m')) | (Some('1'), Some(_)) => {
+                err_at!(DecodeError, msg: format!("{}", text))?
             }
             _ => {
                 let (base, bytes) = {
