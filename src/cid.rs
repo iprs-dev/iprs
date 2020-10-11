@@ -33,9 +33,10 @@ pub enum Version {
 #[derive(Clone, Eq, PartialEq)]
 pub enum Cid {
     /// Cid version ZERO. Actually this is legacy.
+    /// In the distant future, we may remove this support after sha2 breaks.
     Zero(Multihash),
     /// Cid version ONE.
-    One(Option<Base>, Multicodec, Multihash),
+    One(Base, Multicodec, Multihash),
     ///// Use this to lazy-parse CID or to pass-around CID in text-format.
     //Text(String),
     ///// Use this to lazy-parse CID or to pass-around CID in binary-format.
@@ -49,13 +50,9 @@ impl fmt::Display for Cid {
                 let base = Base::Base58Btc;
                 write!(f, "{:?}-cidv0-dag-pb-{}", base, mh)
             }
-            Cid::One(Some(base), codec, mh) => {
+            Cid::One(base, codec, mh) => {
                 let cid_v1: Multicodec = multicodec::CID_V1.into();
                 write!(f, "{:?}-{}-{}-{}", base, cid_v1, codec, mh)
-            }
-            Cid::One(None, codec, mh) => {
-                let cid_v1: Multicodec = multicodec::CID_V1.into();
-                write!(f, "binary-{}-{}-{}", cid_v1, codec, mh)
             }
         }
     }
@@ -76,9 +73,14 @@ impl FromStr for Cid {
 }
 
 impl Cid {
-    /// Create a new Cid in Version-0 format from multihash. Here data
+    /// Create a new Cid in Version-0 format from `data`. Here data
     /// shall be encoded in Multihash specification using SHA2-256
     /// cryptographic hash algorithm.
+    ///
+    /// * _multibase_, base58btc is implied.
+    /// * _multicodec_, dag-pb is implied.
+    /// * _cid-version_, cidv0 is implied.
+    /// * _multihash_ is SHA2_256 computed from `data`.
     ///
     /// _Refer to [CIDv0] spec for details_
     ///
@@ -90,12 +92,13 @@ impl Cid {
         Ok(Cid::Zero(mh))
     }
 
-    /// Create a new Cid in Version-1 format fr
+    /// Create a new Cid in Version-1 format from `data`.
+    ///
     /// _cidv1 ::= multibase-prefix + multicodec-cidv1 + codec + multihash_
     ///
-    /// * _codec_, describes multicodec-content-type or format of the
-    ///   data being addressed.
-    /// * _multihash_, is SHA2-256 of data in Multihash format.
+    /// * _base_, describes base-encoding to be used for this Cid.
+    /// * _codec_, describes multicodec-content-type of the data.
+    /// * _multihash_, is SHA2_256 computed from `data`.
     ///
     /// _Refer to [CIDv1] spec for details_
     ///
@@ -103,27 +106,32 @@ impl Cid {
     ///
     pub fn new_v1(base: Base, codec: Multicodec, data: &[u8]) -> Result<Cid> {
         let mh = Multihash::new(multicodec::SHA2_256.into(), data)?;
-        Ok(Cid::One(Some(base), codec, mh))
+        Ok(Cid::One(base, codec, mh))
     }
 
-    /// Set the `new_base` for base-encoding, if _CID_ is constructed using V1.
-    pub fn set_base_encoding(&mut self, new_base: Base) -> &mut Self {
+    /// Transform into v1 addressing.
+    pub fn into_v1(self) -> Self {
+        use multibase::Base::Base58Btc;
+
         match self {
-            Cid::Zero(_) => (),
-            Cid::One(base, _, _) => *base = Some(new_base),
+            Cid::Zero(peer_id) => {
+                let codec: Multicodec = multicodec::DAG_PB.into();
+                Cid::One(Base58Btc, codec, peer_id)
+            }
+            val @ Cid::One(_, _, _) => val,
         }
-        self
     }
 
     /// Create a Cid-v0 from peer-id.
-    pub fn from_peer_id_v0(&self, peer_id: PeerId) -> Self {
+    pub fn from_peer_id_v0(peer_id: PeerId) -> Self {
         Cid::Zero(peer_id.into())
     }
 
-    /// Create a Cid-v1 from peer-id.
-    pub fn from_peer_id_v1(&self, peer_id: PeerId) -> Self {
+    /// Create a Cid-v1 from peer-id. _codec_ value is implied as
+    /// _LIBP2P_KEY_.
+    pub fn from_peer_id_v1(base: Base, peer_id: PeerId) -> Self {
         let code = multicodec::LIBP2P_KEY;
-        Cid::One(None, code.into(), peer_id.into())
+        Cid::One(base, code.into(), peer_id.into())
     }
 
     /// Decode a base encoded CID, human readable text. CID format can
@@ -157,7 +165,7 @@ impl Cid {
 
                 let (codec, bytes) = Multicodec::decode(bytes)?;
                 let (mh, _) = Multihash::decode(bytes)?;
-                Cid::One(Some(base), codec, mh)
+                Cid::One(base, codec, mh)
             }
         };
 
@@ -171,7 +179,7 @@ impl Cid {
     pub fn to_base_text(&self) -> Result<String> {
         let text = match self {
             Cid::Zero(mh) => bs58::encode(mh.encode()?).into_string(),
-            Cid::One(Some(base), codec, mh) => {
+            Cid::One(base, codec, mh) => {
                 let mut data = {
                     let codec = Multicodec::from_code(multicodec::CID_V1)?;
                     codec.encode()?
@@ -180,10 +188,6 @@ impl Cid {
                 data.extend(mh.encode()?);
                 Multibase::from_base(base.clone(), &data)?.encode()?
             }
-            Cid::One(None, _, _) => {
-                let msg = format!("no base supplied, try binary encoding");
-                err_at!(Invalid, msg: msg)?
-            }
         };
         Ok(text)
     }
@@ -191,6 +195,8 @@ impl Cid {
     /// Decode a binary encoded CID. Refer to [Self::encode] method for details.
     /// Supports both legacy-format and CIDv1-format.
     pub fn decode(bytes: &[u8]) -> Result<Cid> {
+        use multibase::Base::Base32Lower;
+
         let cid = match bytes {
             [0x12, 0x20, ..] => {
                 // legacy format v0.
@@ -206,7 +212,7 @@ impl Cid {
                 }
                 let (codec, bytes) = Multicodec::decode(bytes)?;
                 let (mh, _) = Multihash::decode(bytes)?;
-                Cid::One(None, codec, mh)
+                Cid::One(Base32Lower, codec, mh)
             }
         };
 
@@ -222,10 +228,9 @@ impl Cid {
     ///
     /// If value is a CIDv1 variant:
     ///
-    /// * _CID-version_ byte followed by,
+    /// * _CID-version_ byte
     /// * _codec_, unsigned_varint multicodec value, describing
-    ///   multicodec-content-type or format of the data being addressed,
-    ///   followed by,
+    ///   multicodec-content-type or format of the data being addressed
     /// * _multihash_, is SHA2-256 of data in Multihash format.
     ///
     pub fn encode(&self) -> Result<Vec<u8>> {
@@ -253,18 +258,18 @@ impl Cid {
     }
 
     /// Return the base encoding used for this CID.
-    pub fn to_base(&self) -> Option<Base> {
+    pub fn to_base(&self) -> Base {
         match self {
-            Cid::Zero(_) => Some(Base::Base58Btc),
+            Cid::Zero(_) => Base::Base58Btc,
             Cid::One(base, _, _) => base.clone(),
         }
     }
 
     /// Return the content type or format of the data being addressed.
-    pub fn to_content_type(&self) -> Option<Multicodec> {
+    pub fn to_content_type(&self) -> Multicodec {
         match self {
-            Cid::Zero(_) => None,
-            Cid::One(_, codec, _) => Some(codec.clone()),
+            Cid::Zero(_) => multicodec::DAG_PB.into(),
+            Cid::One(_, codec, _) => codec.clone(),
         }
     }
 

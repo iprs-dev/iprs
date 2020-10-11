@@ -10,16 +10,15 @@ fn test_cid_v1() {
         Cid::new_v1(base, multicodec::DAG_PB.into(), data).unwrap()
     };
 
-    let mut return_cid = Cid::decode(&cid.encode().unwrap()).unwrap();
-    return_cid.set_base_encoding(Base::Base32Lower);
+    let return_cid = Cid::decode(&cid.encode().unwrap()).unwrap();
     assert_eq!(cid, return_cid);
 
     let return_cid = Cid::from_text(&cid.to_base_text().unwrap()).unwrap();
     assert_eq!(cid, return_cid);
 
     assert_eq!(cid.to_version(), Version::One);
-    assert_eq!(cid.to_base(), Some(Base::Base32Lower));
-    assert_eq!(cid.to_content_type(), Some(multicodec::DAG_PB.into()));
+    assert_eq!(cid.to_base(), Base::Base32Lower);
+    assert_eq!(cid.to_content_type(), multicodec::DAG_PB.into());
 
     let mut hasher = sha2::Sha256::new();
     hasher.update(data);
@@ -32,16 +31,15 @@ fn test_cid_v0() {
     let data = b"beep boop";
     let cid = Cid::new_v0(data).unwrap();
 
-    let mut return_cid = Cid::decode(&cid.encode().unwrap()).unwrap();
-    return_cid.set_base_encoding(Base::Base32Lower);
+    let return_cid = Cid::decode(&cid.encode().unwrap()).unwrap();
     assert_eq!(cid, return_cid);
 
     let return_cid = Cid::from_text(&cid.to_base_text().unwrap()).unwrap();
     assert_eq!(cid, return_cid);
 
     assert_eq!(cid.to_version(), Version::Zero);
-    assert_eq!(cid.to_base(), Some(Base::Base58Btc));
-    assert_eq!(cid.to_content_type(), None);
+    assert_eq!(cid.to_base(), Base::Base58Btc);
+    assert_eq!(cid.to_content_type(), multicodec::DAG_PB.into());
 
     let mut hasher = sha2::Sha256::new();
     hasher.update(data);
@@ -82,7 +80,7 @@ fn test_cid_v1_base32() {
         Cid::from_str(s).unwrap()
     };
     assert_eq!(cid.to_version(), Version::One);
-    assert_eq!(cid.to_content_type(), Some(multicodec::RAW.into()));
+    assert_eq!(cid.to_content_type(), multicodec::RAW.into());
     let digest = {
         let mut hasher = sha2::Sha256::new();
         hasher.update(b"foo");

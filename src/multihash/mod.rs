@@ -164,52 +164,8 @@ impl Multihash {
         Ok(mh)
     }
 
-    /// Create a lazy instance of multihash from `data`, where data contains
-    /// encoded multihash. Call [Self::parse] method to de-serialize.
-    pub fn with_binary(data: &[u8]) -> Result<Multihash> {
-        Ok(Inner::Binary(data.to_vec()).into())
-    }
-
-    /// Lazy parse. Typically called after creating this instance using
-    /// [Self::with_binary] constructor.
-    pub fn parse(&mut self) -> Result<()> {
-        match &self.inner {
-            Inner::Binary(data) => *self = Self::decode(data)?.0,
-            _ => (),
-        }
-        Ok(())
-    }
-
-    /// Decode a hash-digest that was encoded using multi-format
-    /// specification.
-    ///
-    /// *<hash-func-type><digest-length><digest-value>*
-    ///
-    /// - The `type` *<hash-func-type>* is an unsigned variable integer
-    ///   identifying the hash function. There is a default table, and
-    ///   it is configurable. The default table is the [multicodec table].
-    /// - The `length` *<digest-length>* is an unsigned variable integer
-    ///   counting the length of the digest, in bytes.
-    /// - The `value` *<digest-value>* is the hash function digest, with
-    ///   a length of exactly `<digest-length>` bytes.
-    ///
-    /// Return the Multihash value and remaining byte-slice. Caller can
-    /// use [Self::to_codec], [Self::to_digest], [Self::unwrap] methods
-    /// to get the hash-digest and hash-algorithm used to generate the digest.
-    pub fn decode(buf: &[u8]) -> Result<(Multihash, &[u8])> {
-        // <hash-func-type><digest-length><digest-value>
-        use unsigned_varint::decode;
-
-        let (codec, digest, rem) = {
-            let (codec, rem) = Multicodec::decode(buf)?;
-            let (n, rem) = err_at!(BadInput, decode::usize(rem))?;
-            if n <= rem.len() {
-                Ok((codec, &rem[..n], &rem[n..]))
-            } else {
-                err_at!(BadInput, msg: format!("hash-len {}", n))
-            }
-        }?;
-
+    /// New multihash from digest and multihash-type.
+    pub fn from_digest(codec: Multicodec, digest: &[u8]) -> Result<Multihash> {
         let code = codec.to_code();
         let inner = match code {
             multicodec::IDENTITY => {
@@ -259,7 +215,57 @@ impl Multihash {
             codec => err_at!(NotImplemented, msg: format!("codec {}", codec))?,
         };
 
-        Ok((inner.into(), rem))
+        Ok(inner.into())
+    }
+
+    /// Create a lazy instance of multihash from `data`, where data contains
+    /// encoded multihash. Call [Self::parse] method to de-serialize.
+    pub fn decode_lazy(data: &[u8]) -> Result<Multihash> {
+        Ok(Inner::Binary(data.to_vec()).into())
+    }
+
+    /// Lazy parse. Typically called after creating this instance using
+    /// [Self::with_binary] constructor.
+    pub fn parse(&mut self) -> Result<()> {
+        match &self.inner {
+            Inner::Binary(data) => *self = Self::decode(data)?.0,
+            _ => (),
+        }
+        Ok(())
+    }
+
+    /// Decode a hash-digest that was encoded using multi-format
+    /// specification.
+    ///
+    /// *<hash-func-type><digest-length><digest-value>*
+    ///
+    /// - The `type` *<hash-func-type>* is an unsigned variable integer
+    ///   identifying the hash function. There is a default table, and
+    ///   it is configurable. The default table is the [multicodec table].
+    /// - The `length` *<digest-length>* is an unsigned variable integer
+    ///   counting the length of the digest, in bytes.
+    /// - The `value` *<digest-value>* is the hash function digest, with
+    ///   a length of exactly `<digest-length>` bytes.
+    ///
+    /// Return the Multihash value and remaining byte-slice. Caller can
+    /// use [Self::to_codec], [Self::to_digest], [Self::unwrap] methods
+    /// to get the hash-digest and hash-algorithm used to generate the digest.
+    pub fn decode(buf: &[u8]) -> Result<(Multihash, &[u8])> {
+        // <hash-func-type><digest-length><digest-value>
+        use unsigned_varint::decode;
+
+        let (codec, digest, rem) = {
+            let (codec, rem) = Multicodec::decode(buf)?;
+            let (n, rem) = err_at!(BadInput, decode::usize(rem))?;
+            if n <= rem.len() {
+                Ok((codec, &rem[..n], &rem[n..]))
+            } else {
+                err_at!(BadInput, msg: format!("hash-len {}", n))
+            }
+        }?;
+
+        let mh = Self::from_digest(codec, digest)?;
+        Ok((mh, rem))
     }
 
     /// Encode hash-digest and associated headers as per multi-hash
