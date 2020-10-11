@@ -50,9 +50,9 @@ impl fmt::Display for Cid {
                 let base = Base::Base58Btc;
                 write!(f, "{:?}-cidv0-dag-pb-{}", base, mh)
             }
-            Cid::One(base, codec, mh) => {
+            Cid::One(base, content_type, mh) => {
                 let cid_v1: Multicodec = multicodec::CID_V1.into();
-                write!(f, "{:?}-{}-{}-{}", base, cid_v1, codec, mh)
+                write!(f, "{:?}-{}-{}-{}", base, cid_v1, content_type, mh)
             }
         }
     }
@@ -104,9 +104,9 @@ impl Cid {
     ///
     /// [CIDv1]: https://github.com/multiformats/cid#how-does-it-work
     ///
-    pub fn new_v1(base: Base, codec: Multicodec, data: &[u8]) -> Result<Cid> {
+    pub fn new_v1(base: Base, content_type: Multicodec, data: &[u8]) -> Result<Cid> {
         let mh = Multihash::new(multicodec::SHA2_256.into(), data)?;
-        Ok(Cid::One(base, codec, mh))
+        Ok(Cid::One(base, content_type, mh))
     }
 
     /// Transform into v1 addressing.
@@ -115,11 +115,18 @@ impl Cid {
 
         match self {
             Cid::Zero(peer_id) => {
-                let codec: Multicodec = multicodec::DAG_PB.into();
-                Cid::One(Base58Btc, codec, peer_id)
+                let content_type: Multicodec = multicodec::DAG_PB.into();
+                Cid::One(Base58Btc, content_type, peer_id)
             }
             val @ Cid::One(_, _, _) => val,
         }
+    }
+
+    /// Compase CID-v1 from raw-hash-links. Convert the digest into multi-hash
+    /// gather the base-encoding and content-type from the context and use this
+    /// API to create a CID.
+    pub fn from_raw(base: Base, content_type: Multicodec, mh: Multihash) -> Self {
+        Cid::One(base, content_type, mh)
     }
 
     /// Create a Cid-v0 from peer-id.
@@ -166,9 +173,9 @@ impl Cid {
                     _ => err_at!(ParseError, msg: format!("CID {}", codec))?,
                 }
 
-                let (codec, bytes) = Multicodec::decode(bytes)?;
+                let (content_type, bytes) = Multicodec::decode(bytes)?;
                 let (mh, _) = Multihash::decode(bytes)?;
-                Cid::One(base, codec, mh)
+                Cid::One(base, content_type, mh)
             }
         };
 
@@ -179,15 +186,15 @@ impl Cid {
     ///
     /// * If value is a CIDv0 variant, encoded into legacy base58btc format.
     /// * If value is a CIDv1 variant, encoded using specified base format.
-    pub fn to_base_text(&self) -> Result<String> {
+    pub fn to_text(&self) -> Result<String> {
         let text = match self {
             Cid::Zero(mh) => bs58::encode(mh.encode()?).into_string(),
-            Cid::One(base, codec, mh) => {
+            Cid::One(base, content_type, mh) => {
                 let mut data = {
                     let codec = Multicodec::from_code(multicodec::CID_V1)?;
                     codec.encode()?
                 };
-                data.extend(codec.encode()?);
+                data.extend(content_type.encode()?);
                 data.extend(mh.encode()?);
                 Multibase::from_base(base.clone(), &data)?.encode()?
             }
@@ -213,9 +220,9 @@ impl Cid {
                     multicodec::CID_V1 => (),
                     _ => err_at!(DecodeError, msg: format!("CID {}", codec))?,
                 }
-                let (codec, bytes) = Multicodec::decode(bytes)?;
+                let (content_type, bytes) = Multicodec::decode(bytes)?;
                 let (mh, _) = Multihash::decode(bytes)?;
-                Cid::One(Base32Lower, codec, mh)
+                Cid::One(Base32Lower, content_type, mh)
             }
         };
 
@@ -239,12 +246,12 @@ impl Cid {
     pub fn encode(&self) -> Result<Vec<u8>> {
         let bytes = match self {
             Cid::Zero(mh) => mh.encode()?,
-            Cid::One(_, codec, mh) => {
+            Cid::One(_, content_type, mh) => {
                 let mut bytes = {
                     let codec = Multicodec::from_code(multicodec::CID_V1)?;
                     codec.encode()?
                 };
-                bytes.extend(codec.encode()?);
+                bytes.extend(content_type.encode()?);
                 bytes.extend(mh.encode()?);
                 bytes
             }
@@ -272,7 +279,7 @@ impl Cid {
     pub fn to_content_type(&self) -> Multicodec {
         match self {
             Cid::Zero(_) => multicodec::DAG_PB.into(),
-            Cid::One(_, codec, _) => codec.clone(),
+            Cid::One(_, content_type, _) => content_type.clone(),
         }
     }
 
@@ -285,12 +292,12 @@ impl Cid {
         }
     }
 
-    /// If CID is pointing to a peer-id, that is if the codec is
+    /// If CID is pointing to a peer-id, that is if the content_type is
     /// _LIBP2P_KEY_, return the PeerId value.
     pub fn to_peer_id(&self) -> Option<PeerId> {
         let code = multicodec::LIBP2P_KEY;
         match self {
-            Cid::One(_, codec, mh) if codec.to_code() == code => {
+            Cid::One(_, content_type, mh) if content_type.to_code() == code => {
                 //
                 Some(mh.clone().into())
             }
