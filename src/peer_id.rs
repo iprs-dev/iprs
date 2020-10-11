@@ -1,5 +1,5 @@
 //! Module implement Peer ID for libp2p network. _Refer [peer-id] spec
-//! for details_.
+//! for details.
 //!
 //! [peer-id]: https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md
 
@@ -96,9 +96,7 @@ impl PeerId {
             false => multicodec::SHA2_256.into(),
         };
 
-        let mut mh = Multihash::from_codec(codec)?;
-        mh.write(&enc_buf)?.finish()?;
-
+        let mh = Multihash::new(codec, &enc_buf)?;
         Ok(PeerId { mh })
     }
 
@@ -123,11 +121,8 @@ impl PeerId {
                 (bytes, codec)
             }
         };
-        let mh = {
-            let mut mh = Multihash::from_codec(codec)?;
-            mh.write(&bytes)?.finish()?;
-            mh
-        };
+
+        let mh = Multihash::new(codec, &bytes)?;
         Ok(PeerId { mh })
     }
 
@@ -241,7 +236,7 @@ impl PeerId {
     /// unlike when it is encoded as public-key's hash, it is possible to
     /// extract the public-key from the peer-id.
     pub fn to_public_key(&self) -> Result<Option<PublicKey>> {
-        let (codec, digest) = self.mh.clone().unwrap();
+        let (codec, digest) = self.mh.clone().unwrap()?;
         let public_key = match codec.to_code() {
             multicodec::IDENTITY => {
                 let public_key = PublicKey::from_protobuf_encoding(&digest)?;

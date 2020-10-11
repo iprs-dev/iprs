@@ -1,10 +1,10 @@
-//! Module adapts several hashing algorithms into multiformat
-//! specification.
+//! Module implement Multihash. _Refer [multihash] spec for detail_.
+//!
+//! [multihash]: https://multiformats.io/multihash/
 
 // TODO:
 // 1. For Shake128 and Shake256 algorithm variable output length
 //    `d` must be included as part of the spec and API.
-
 mod blake2b;
 mod blake2s;
 mod blake3;
@@ -26,8 +26,9 @@ use crate::multihash::{
 
 use crate::{multicodec, multicodec::Multicodec, Error, Result};
 
-/// Type adapts several hashing algorithms that can be encoded/decoded
-/// into/from multi-format/multi-hash.
+/// Type adapts several hashing algorithms within [multihash] specification.
+///
+/// [multihash]: https://multiformats.io/multihash/
 #[derive(Clone, Eq, PartialEq)]
 pub struct Multihash {
     inner: Inner,
@@ -35,6 +36,7 @@ pub struct Multihash {
 
 #[derive(Clone, Eq, PartialEq)]
 enum Inner {
+    Binary(Vec<u8>),
     Identity(Multicodec, Identity),
     Sha1(Multicodec, Sha1),
     Sha2(Multicodec, Sha2),
@@ -50,30 +52,42 @@ enum Inner {
 
 impl fmt::Display for Multihash {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+        use multibase::Base::Base16Lower;
         use std::iter::FromIterator;
         use Inner::*;
 
-        let empty = vec![];
-        let (codec, digest) = match &self.inner {
-            Identity(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Sha1(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Sha2(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Sha3(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Blake2b(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Blake2s(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Blake3(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Md4(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Md5(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            Skein(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
-            RipeMd(c, hasher) => (c, hasher.as_digest().unwrap_or(&empty)),
+        fn get_parts(inner: &Inner) -> Option<(Multicodec, Vec<u8>)> {
+            let (codec, digest) = match inner {
+                Identity(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Sha1(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Sha2(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Sha3(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Blake2b(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Blake2s(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Blake3(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Md4(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Md5(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Skein(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                RipeMd(c, h) => (c.clone(), h.as_digest().ok()?.to_vec()),
+                Binary(data) => get_parts(&Multihash::decode(&data).ok()?.0.inner)?,
+            };
+
+            Some((codec, digest))
         };
-        let text = {
-            let text = multibase::encode(multibase::Base::Base16Lower, &digest);
-            let mut chars = text.chars();
-            chars.next();
-            String::from_iter(chars)
-        };
-        write!(f, "{}-{}-{}", codec, digest.len() * 8, text)
+
+        // human readable repr
+        // refer: https://github.com/multiformats/cid/blob/master/README.md#human-readable-cids
+
+        match get_parts(&self.inner) {
+            Some((codec, digest)) => {
+                let text = multibase::encode(Base16Lower, &digest);
+                let chars = text.chars();
+                // first char is base-prefix
+                let text = String::from_iter(chars.skip(1));
+                write!(f, "{}-{}-{}", codec, digest.len() * 8, text)
+            }
+            None => write!(f, "xxx-xxx-xxx..."),
+        }
     }
 }
 
@@ -84,9 +98,10 @@ impl From<Inner> for Multihash {
 }
 
 impl Multihash {
-    /// Create a Multihash instance, from a multi-codec value for
-    /// generating hash-digest and encode them in multi-format.
-    pub fn from_codec(codec: Multicodec) -> Result<Multihash> {
+    /// Create a Multihash instance, of type multi-codec for data. Digest
+    /// will be created for `data`, using the multi-hash algorithm specified
+    /// by `codec`.
+    pub fn new(codec: Multicodec, data: &[u8]) -> Result<Multihash> {
         let code = codec.to_code();
         let inner = match code {
             multicodec::IDENTITY => {
@@ -142,7 +157,27 @@ impl Multihash {
             // multicodec::SHA2_256_TRUNC254_PADDED => unimplemented!(),
             codec => err_at!(NotImplemented, msg: format!("codec {}", codec))?,
         };
-        Ok(inner.into())
+
+        let mut mh: Multihash = inner.into();
+        mh.write(data)?.finish()?;
+
+        Ok(mh)
+    }
+
+    /// Create a lazy instance of multihash from `data`, where data contains
+    /// encoded multihash. Call [Self::parse] method to de-serialize.
+    pub fn with_binary(data: &[u8]) -> Result<Multihash> {
+        Ok(Inner::Binary(data.to_vec()).into())
+    }
+
+    /// Lazy parse. Typically called after creating this instance using
+    /// [Self::with_binary] constructor.
+    pub fn parse(&mut self) -> Result<()> {
+        match &self.inner {
+            Inner::Binary(data) => *self = Self::decode(data)?.0,
+            _ => (),
+        }
+        Ok(())
     }
 
     /// Decode a hash-digest that was encoded using multi-format
@@ -159,8 +194,8 @@ impl Multihash {
     ///   a length of exactly `<digest-length>` bytes.
     ///
     /// Return the Multihash value and remaining byte-slice. Caller can
-    /// use [to_codec], [to_digest], [unwrap] methods to get the hash-digest
-    /// and hash-algorithm used to generate the digest.
+    /// use [Self::to_codec], [Self::to_digest], [Self::unwrap] methods
+    /// to get the hash-digest and hash-algorithm used to generate the digest.
     pub fn decode(buf: &[u8]) -> Result<(Multihash, &[u8])> {
         // <hash-func-type><digest-length><digest-value>
         use unsigned_varint::decode;
@@ -227,82 +262,21 @@ impl Multihash {
         Ok((inner.into(), rem))
     }
 
-    /// Accumulate bytes for which a hash-digest needs to be generated.
-    ///
-    /// Typical usage:
-    ///
-    /// ```ignore
-    ///     let hasher = Multihash::from_code(multicodec::SHA2_256);
-    ///     hasher.write("hello world".as_bytes());
-    ///     hasher.write("ciao".as_bytes());
-    ///     (codec, digest) = hasher.finish().unwrap();
-    /// ```
-    ///
-    /// To reuse the multihash value, call `reset()` and repeat the process.
-    ///
-    pub fn write(&mut self, bytes: &[u8]) -> Result<&mut Self> {
-        match &mut self.inner {
-            Inner::Identity(_, hasher) => hasher.write(bytes)?,
-            Inner::Sha1(_, hasher) => hasher.write(bytes)?,
-            Inner::Sha2(_, hasher) => hasher.write(bytes)?,
-            Inner::Sha3(_, hasher) => hasher.write(bytes)?,
-            Inner::Blake3(_, hasher) => hasher.write(bytes)?,
-            Inner::Blake2b(_, hasher) => hasher.write(bytes)?,
-            Inner::Blake2s(_, hasher) => hasher.write(bytes)?,
-            Inner::Md4(_, hasher) => hasher.write(bytes)?,
-            Inner::Md5(_, hasher) => hasher.write(bytes)?,
-            Inner::Skein(_, hasher) => hasher.write(bytes)?,
-            Inner::RipeMd(_, hasher) => hasher.write(bytes)?,
-        };
-        Ok(self)
-    }
-
-    /// Finish accumulating data for generating digest, calling this value
-    /// shall actually generate the final digest.
-    pub fn finish(&mut self) -> Result<&mut Self> {
-        match &mut self.inner {
-            Inner::Identity(_, hasher) => hasher.finish()?,
-            Inner::Sha1(_, hasher) => hasher.finish()?,
-            Inner::Sha2(_, hasher) => hasher.finish()?,
-            Inner::Sha3(_, hasher) => hasher.finish()?,
-            Inner::Blake3(_, hasher) => hasher.finish()?,
-            Inner::Blake2b(_, hasher) => hasher.finish()?,
-            Inner::Blake2s(_, hasher) => hasher.finish()?,
-            Inner::Md4(_, hasher) => hasher.finish()?,
-            Inner::Md5(_, hasher) => hasher.finish()?,
-            Inner::Skein(_, hasher) => hasher.finish()?,
-            Inner::RipeMd(_, hasher) => hasher.finish()?,
-        };
-        Ok(self)
-    }
-
-    /// Reset to reuse this value for ingesting new data and generate a
-    /// new hash digest.
-    pub fn reset(&mut self) -> Result<&mut Self> {
-        match &mut self.inner {
-            Inner::Identity(_, hasher) => hasher.reset()?,
-            Inner::Sha1(_, hasher) => hasher.reset()?,
-            Inner::Sha2(_, hasher) => hasher.reset()?,
-            Inner::Sha3(_, hasher) => hasher.reset()?,
-            Inner::Blake3(_, hasher) => hasher.reset()?,
-            Inner::Blake2b(_, hasher) => hasher.reset()?,
-            Inner::Blake2s(_, hasher) => hasher.reset()?,
-            Inner::Md4(_, hasher) => hasher.reset()?,
-            Inner::Md5(_, hasher) => hasher.reset()?,
-            Inner::Skein(_, hasher) => hasher.reset()?,
-            Inner::RipeMd(_, hasher) => hasher.reset()?,
-        };
-        Ok(self)
-    }
-
     /// Encode hash-digest and associated headers as per multi-hash
     /// specification.
     ///
     /// `<hash-func-type><digest-length><digest-value>`
     pub fn encode(&self) -> Result<Vec<u8>> {
-        let mut buf = Vec::default();
-        self.encode_with(&mut buf)?;
-        Ok(buf)
+        let data = match &self.inner {
+            Inner::Binary(data) => data.clone(),
+            _ => {
+                let mut buf = Vec::default();
+                self.encode_with(&mut buf)?;
+                buf
+            }
+        };
+
+        Ok(data)
     }
 
     // Similar to encode() but avoid allocation by using supplied buffer
@@ -314,6 +288,7 @@ impl Multihash {
         use unsigned_varint::encode;
 
         let digest = match &self.inner {
+            Inner::Binary(_) => err_at!(Fatal, msg: format!("unreachable!"))?,
             Inner::Identity(_, hasher) => hasher.as_digest()?,
             Inner::Sha1(_, hasher) => hasher.as_digest()?,
             Inner::Sha2(_, hasher) => hasher.as_digest()?,
@@ -327,7 +302,7 @@ impl Multihash {
             Inner::RipeMd(_, hasher) => hasher.as_digest()?,
         };
         let n = {
-            let out = self.to_codec().encode()?;
+            let out = self.to_codec()?.encode()?;
             err_at!(IOError, buf.write(&out))?;
             out.len()
         };
@@ -345,60 +320,144 @@ impl Multihash {
         Ok(n + m + digest.len())
     }
 
+    // Accumulate bytes for which a hash-digest needs to be generated.
+    //
+    // Typical usage:
+    //
+    // ```ignore
+    //     let hasher = Multihash::from_code(multicodec::SHA2_256);
+    //     hasher.write("hello world".as_bytes());
+    //     hasher.write("ciao".as_bytes());
+    //     (codec, digest) = hasher.finish().unwrap();
+    // ```
+    //
+    // To reuse the multihash value, call `reset()` and repeat the process.
+    //
+    fn write(&mut self, data: &[u8]) -> Result<&mut Self> {
+        match &mut self.inner {
+            Inner::Identity(_, hasher) => hasher.write(data)?,
+            Inner::Sha1(_, hasher) => hasher.write(data)?,
+            Inner::Sha2(_, hasher) => hasher.write(data)?,
+            Inner::Sha3(_, hasher) => hasher.write(data)?,
+            Inner::Blake3(_, hasher) => hasher.write(data)?,
+            Inner::Blake2b(_, hasher) => hasher.write(data)?,
+            Inner::Blake2s(_, hasher) => hasher.write(data)?,
+            Inner::Md4(_, hasher) => hasher.write(data)?,
+            Inner::Md5(_, hasher) => hasher.write(data)?,
+            Inner::Skein(_, hasher) => hasher.write(data)?,
+            Inner::RipeMd(_, hasher) => hasher.write(data)?,
+            Inner::Binary(_) => {
+                let msg = format!("mh in binary form");
+                err_at!(Invalid, msg: msg)?
+            }
+        };
+        Ok(self)
+    }
+
+    // Finish accumulating data for generating digest, calling this value
+    // shall actually generate the final digest.
+    fn finish(&mut self) -> Result<&mut Self> {
+        match &mut self.inner {
+            Inner::Identity(_, hasher) => hasher.finish()?,
+            Inner::Sha1(_, hasher) => hasher.finish()?,
+            Inner::Sha2(_, hasher) => hasher.finish()?,
+            Inner::Sha3(_, hasher) => hasher.finish()?,
+            Inner::Blake3(_, hasher) => hasher.finish()?,
+            Inner::Blake2b(_, hasher) => hasher.finish()?,
+            Inner::Blake2s(_, hasher) => hasher.finish()?,
+            Inner::Md4(_, hasher) => hasher.finish()?,
+            Inner::Md5(_, hasher) => hasher.finish()?,
+            Inner::Skein(_, hasher) => hasher.finish()?,
+            Inner::RipeMd(_, hasher) => hasher.finish()?,
+            Inner::Binary(_) => {
+                let msg = format!("mh in binary form");
+                err_at!(Invalid, msg: msg)?
+            }
+        };
+        Ok(self)
+    }
+
+    // Reset to reuse this value for ingesting new data and generate a
+    // new hash digest.
+    #[allow(unused)]
+    fn reset(&mut self) -> Result<&mut Self> {
+        match &mut self.inner {
+            Inner::Identity(_, hasher) => hasher.reset()?,
+            Inner::Sha1(_, hasher) => hasher.reset()?,
+            Inner::Sha2(_, hasher) => hasher.reset()?,
+            Inner::Sha3(_, hasher) => hasher.reset()?,
+            Inner::Blake3(_, hasher) => hasher.reset()?,
+            Inner::Blake2b(_, hasher) => hasher.reset()?,
+            Inner::Blake2s(_, hasher) => hasher.reset()?,
+            Inner::Md4(_, hasher) => hasher.reset()?,
+            Inner::Md5(_, hasher) => hasher.reset()?,
+            Inner::Skein(_, hasher) => hasher.reset()?,
+            Inner::RipeMd(_, hasher) => hasher.reset()?,
+            Inner::Binary(_) => {
+                let msg = format!("mh in binary form");
+                err_at!(Invalid, msg: msg)?
+            }
+        };
+        Ok(self)
+    }
+}
+
+impl Multihash {
     /// Return the multihash codec.
-    pub fn to_codec(&self) -> Multicodec {
+    pub fn to_codec(&self) -> Result<Multicodec> {
         match &self.inner {
-            Inner::Identity(codec, _) => codec.clone(),
-            Inner::Sha1(codec, _) => codec.clone(),
-            Inner::Sha2(codec, _) => codec.clone(),
-            Inner::Sha3(codec, _) => codec.clone(),
-            Inner::Blake3(codec, _) => codec.clone(),
-            Inner::Blake2b(codec, _) => codec.clone(),
-            Inner::Blake2s(codec, _) => codec.clone(),
-            Inner::Md4(codec, _) => codec.clone(),
-            Inner::Md5(codec, _) => codec.clone(),
-            Inner::Skein(codec, _) => codec.clone(),
-            Inner::RipeMd(codec, _) => codec.clone(),
+            Inner::Identity(codec, _) => Ok(codec.clone()),
+            Inner::Sha1(codec, _) => Ok(codec.clone()),
+            Inner::Sha2(codec, _) => Ok(codec.clone()),
+            Inner::Sha3(codec, _) => Ok(codec.clone()),
+            Inner::Blake3(codec, _) => Ok(codec.clone()),
+            Inner::Blake2b(codec, _) => Ok(codec.clone()),
+            Inner::Blake2s(codec, _) => Ok(codec.clone()),
+            Inner::Md4(codec, _) => Ok(codec.clone()),
+            Inner::Md5(codec, _) => Ok(codec.clone()),
+            Inner::Skein(codec, _) => Ok(codec.clone()),
+            Inner::RipeMd(codec, _) => Ok(codec.clone()),
+            Inner::Binary(data) => Self::decode(data)?.0.to_codec(),
         }
     }
 
     /// Return the underlying hash digest.
     ///
     /// *Panic if digest is not generated or decoded*.
-    pub fn to_digest(&self) -> Vec<u8> {
-        let digest = match &self.inner {
-            Inner::Identity(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Sha1(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Sha2(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Sha3(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Blake3(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Blake2b(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Blake2s(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Md4(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Md5(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Skein(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::RipeMd(_, hasher) => hasher.as_digest().unwrap(),
-        };
-        digest.to_vec()
+    pub fn to_digest(&self) -> Result<Vec<u8>> {
+        match &self.inner {
+            Inner::Identity(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Sha1(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Sha2(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Sha3(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Blake3(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Blake2b(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Blake2s(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Md4(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Md5(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Skein(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::RipeMd(_, h) => Ok(h.as_digest()?.to_vec()),
+            Inner::Binary(data) => Self::decode(data)?.0.to_digest(),
+        }
     }
 
     /// Unwrap the underlying codec and hash digest. Panic if digest
     /// is not generated or decoded.
-    pub fn unwrap(self) -> (Multicodec, Vec<u8>) {
-        let digest = match &self.inner {
-            Inner::Identity(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Sha1(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Sha2(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Sha3(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Blake3(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Blake2b(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Blake2s(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Md4(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Md5(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::Skein(_, hasher) => hasher.as_digest().unwrap(),
-            Inner::RipeMd(_, hasher) => hasher.as_digest().unwrap(),
-        };
-        (self.to_codec(), digest.to_vec())
+    pub fn unwrap(self) -> Result<(Multicodec, Vec<u8>)> {
+        match &self.inner {
+            Inner::Identity(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Sha1(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Sha2(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Sha3(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Blake3(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Blake2b(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Blake2s(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Md4(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Md5(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Skein(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::RipeMd(c, h) => Ok((c.clone(), h.as_digest()?.to_vec())),
+            Inner::Binary(data) => Self::decode(data)?.0.unwrap(),
+        }
     }
 }
 
@@ -409,8 +468,14 @@ impl io::Write for Multihash {
         Ok(buf.len())
     }
 
-    fn flush(&mut self) -> ::std::io::Result<()> {
-        Ok(())
+    fn flush(&mut self) -> io::Result<()> {
+        match self.finish() {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                let e = e.to_string();
+                Err(io::Error::new(io::ErrorKind::Other, e.as_str()))
+            }
+        }
     }
 }
 

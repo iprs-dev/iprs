@@ -76,11 +76,10 @@ fn test_base_formats() {
 fn test_bs58_multibase() {
     use crate::{multicodec, multihash::Multihash};
 
-    let mut mh = Multihash::from_codec(multicodec::SHA2_256.into()).unwrap();
-    mh.write("hello world".as_bytes())
-        .unwrap()
-        .finish()
-        .unwrap();
+    let mh = {
+        let data = "hello world".as_bytes();
+        Multihash::new(multicodec::SHA2_256.into(), data).unwrap()
+    };
     let data = mh.encode().unwrap();
 
     let mb = Multibase::from_char('z', &data).unwrap();

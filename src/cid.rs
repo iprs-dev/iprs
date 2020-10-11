@@ -1,4 +1,4 @@
-//! Module implement content Identifier. _Refer [cid] spec for details_.
+//! Module implement content Identifier. _Refer [cid] spec for detail_.
 //!
 //! [cid]: https://github.com/multiformats/cid
 
@@ -15,8 +15,9 @@ use crate::{
     Error, Result,
 };
 
-/// Content Identifier is represeted in different formats, there is
-/// legacy, then came CIDv1, to keep it future-proof there are two
+/// Content Identifier is represeted in different formats.
+///
+/// There is legacy, then came CIDv1, to keep it future-proof there are two
 /// more reserved versions allocated in [multicodec-spec].
 ///
 /// [multicodec-spec]: https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -31,8 +32,14 @@ pub enum Version {
 /// Content Identifier.
 #[derive(Clone, Eq, PartialEq)]
 pub enum Cid {
+    /// Cid version ZERO. Actually this is legacy.
     Zero(Multihash),
+    /// Cid version ONE.
     One(Option<Base>, Multicodec, Multihash),
+    ///// Use this to lazy-parse CID or to pass-around CID in text-format.
+    //Text(String),
+    ///// Use this to lazy-parse CID or to pass-around CID in binary-format.
+    //Binary(Vec<u8>),
 }
 
 impl fmt::Display for Cid {
@@ -69,12 +76,9 @@ impl FromStr for Cid {
 }
 
 impl Cid {
-    /// Create a new Cid in Version-0 format for data. Here data shall be
-    /// encoded in Multihash specification using SHA2-256 cryptographic
-    /// hash algorithm.
-    ///
-    /// * 32 byte length SHA2-256 digest is created for data.
-    /// * Resulting digest is encoded in [multihash] format.
+    /// Create a new Cid in Version-0 format from multihash. Here data
+    /// shall be encoded in Multihash specification using SHA2-256
+    /// cryptographic hash algorithm.
     ///
     /// _Refer to [CIDv0] spec for details_
     ///
@@ -82,11 +86,11 @@ impl Cid {
     /// [multihash]: https://multiformats.io/multihash/
     ///
     pub fn new_v0(data: &[u8]) -> Result<Cid> {
-        let mut mh = Multihash::from_codec(multicodec::SHA2_256.into())?;
-        mh.write(data)?.finish()?;
+        let mh = Multihash::new(multicodec::SHA2_256.into(), data)?;
         Ok(Cid::Zero(mh))
     }
 
+    /// Create a new Cid in Version-1 format fr
     /// _cidv1 ::= multibase-prefix + multicodec-cidv1 + codec + multihash_
     ///
     /// * _codec_, describes multicodec-content-type or format of the
@@ -98,8 +102,7 @@ impl Cid {
     /// [CIDv1]: https://github.com/multiformats/cid#how-does-it-work
     ///
     pub fn new_v1(base: Base, codec: Multicodec, data: &[u8]) -> Result<Cid> {
-        let mut mh = Multihash::from_codec(multicodec::SHA2_256.into())?;
-        mh.write(data)?.finish()?;
+        let mh = Multihash::new(multicodec::SHA2_256.into(), data)?;
         Ok(Cid::One(Some(base), codec, mh))
     }
 
@@ -185,7 +188,7 @@ impl Cid {
         Ok(text)
     }
 
-    /// Decode a binary encoded CID. Refer to [encode] method for details.
+    /// Decode a binary encoded CID. Refer to [Self::encode] method for details.
     /// Supports both legacy-format and CIDv1-format.
     pub fn decode(bytes: &[u8]) -> Result<Cid> {
         let cid = match bytes {

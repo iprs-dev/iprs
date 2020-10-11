@@ -1,4 +1,4 @@
-//! Module implement [multicodec] specification.
+//! Module implement Multicodec. _Refer [multicodec] spec for detail_.
 //!
 //! Multicodec is an agreed-upon codec table. It is designed for
 //! use in binary representations, such as keys or identifiers. This
@@ -17,7 +17,7 @@ use crate::{Error, Result};
 ///
 /// [multicodec]: https://github.com/multiformats/multicodec
 /// [unsigned-varint]: https://github.com/multiformats/unsigned-varint
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
 pub struct Multicodec {
     code: u128,
 }
