@@ -1,4 +1,3 @@
-#[macro_export]
 macro_rules! read_slice {
     ($data:expr, $n:expr, $prefix:expr) => {
         if $data.len() < $n {

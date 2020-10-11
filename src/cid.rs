@@ -143,27 +143,27 @@ impl Cid {
                 // legacy format v0.
                 let bytes = {
                     let res = bs58::decode(text.as_bytes()).into_vec();
-                    err_at!(DecodeError, res)?
+                    err_at!(ParseError, res)?
                 };
                 let (mh, _) = Multihash::decode(&bytes)?;
                 Cid::Zero(mh)
             }
             (Some('Q'), Some('m')) | (Some('1'), Some(_)) => {
-                err_at!(DecodeError, msg: format!("{}", text))?
+                err_at!(ParseError, msg: format!("{}", text))?
             }
             _ => {
                 let (base, bytes) = {
                     let mb = Multibase::decode(text)?;
                     match mb.to_bytes() {
                         Some(bytes) => (mb.to_base(), bytes),
-                        None => err_at!(DecodeError, msg: format!("{}", text))?,
+                        None => err_at!(ParseError, msg: format!("{}", text))?,
                     }
                 };
                 // <multicodec-cidv1><codec><multihash>
                 let (codec, bytes) = Multicodec::decode(&bytes)?;
                 match codec.to_code() {
                     multicodec::CID_V1 => (),
-                    _ => err_at!(DecodeError, msg: format!("CID {}", codec))?,
+                    _ => err_at!(ParseError, msg: format!("CID {}", codec))?,
                 }
 
                 let (codec, bytes) = Multicodec::decode(bytes)?;
