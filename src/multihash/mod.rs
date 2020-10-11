@@ -225,7 +225,7 @@ impl Multihash {
     }
 
     /// Lazy parse. Typically called after creating this instance using
-    /// [Self::with_binary] constructor.
+    /// [Self::decode_lazy] constructor.
     pub fn parse(&mut self) -> Result<()> {
         match &self.inner {
             Inner::Binary(data) => *self = Self::decode(data)?.0,

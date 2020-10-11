@@ -1,6 +1,13 @@
-//! Package implement [multiformats] specification.
+//! Library implement _inter planetary specifications_ in rust-lang.
 //!
-//! [multiformats]: http://multiformats.io
+//! **Stated Goals**
+//!
+//! * [multiformats](http://multiformats.io)
+//! * [peer-to-peer library](http://libp2p.io)
+//! * [inter-planetary-linked-data](http://ipld.io)
+//! * [inter-planetray-file-system](http://ipfs.io)
+//! * Between production ready and research friendly, choose research.
+//! * Between performance and composability, choose composable.
 
 #![feature(box_syntax, box_patterns)]
 
