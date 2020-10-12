@@ -72,6 +72,9 @@ IPLD Foundational Principles
 * Similarly, traversing an IPLD Node according to a Path should not require
   interpretation in the context of anything not already contained in that
   Node plus Path.
+* **Format**, is the standardized representation of IPLD Links and Paths.
+  It describes how to translate between structured data and binary.
+  **MUST** remain consistent across all codec implementations.
 * IPLD links must not be cyclic, even if we add support for relative links.
 * IPLD path resolution means the same thing, everywhere, every time.
 
