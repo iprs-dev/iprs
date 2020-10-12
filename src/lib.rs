@@ -30,9 +30,10 @@ pub mod pb;
 pub mod peer_id;
 pub mod peer_record;
 
-// modules that has its own sub-directories
+// modules that have its own sub-directories
 pub mod identity;
 pub mod ipfsd;
+pub mod ipld;
 pub mod multiaddr;
 pub mod multihash;
 
