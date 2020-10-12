@@ -75,6 +75,8 @@ IPLD Foundational Principles
 * **Format**, is the standardized representation of IPLD Links and Paths.
   It describes how to translate between structured data and binary.
   **MUST** remain consistent across all codec implementations.
+* **Content addressability** refers to the ability to refer to content by a
+  trustless identifier.
 * IPLD links must not be cyclic, even if we add support for relative links.
 * IPLD path resolution means the same thing, everywhere, every time.
 
