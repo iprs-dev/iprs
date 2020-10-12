@@ -18,7 +18,7 @@ use std::{error, fmt, result};
 extern crate data_encoding_macro;
 
 #[macro_use]
-mod util;
+pub mod util;
 pub mod cid;
 pub mod multibase;
 pub mod multicodec;
@@ -49,6 +49,7 @@ pub enum Error {
     SysFail(String, String),
     IPCFail(String, String),
     ThreadFail(String, String),
+    FilePath(String, String),
     Invalid(String, String),
     ParseError(String, String),
     DecodeError(String, String),
@@ -72,6 +73,7 @@ impl fmt::Display for Error {
             SysFail(p, msg) => write!(f, "{} SysFail: {}", p, msg),
             IPCFail(p, msg) => write!(f, "{} IPCFail: {}", p, msg),
             ThreadFail(p, msg) => write!(f, "{} ThreadFail: {}", p, msg),
+            FilePath(p, msg) => write!(f, "{} FilePath: {}", p, msg),
             Invalid(p, msg) => write!(f, "{} Invalid: {}", p, msg),
             ParseError(p, msg) => write!(f, "{} ParseError: {}", p, msg),
             DecodeError(p, msg) => write!(f, "{} DecodeError: {}", p, msg),
