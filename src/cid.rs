@@ -182,20 +182,22 @@ impl Cid {
         Ok(cid)
     }
 
-    /// Encode in base format.
+    /// Encode in base format. Use the supplied `base`, if none, fall back
+    /// to default base used while constructing the Cid.
     ///
     /// * If value is a CIDv0 variant, encoded into legacy base58btc format.
     /// * If value is a CIDv1 variant, encoded using specified base format.
-    pub fn to_text(&self) -> Result<String> {
+    pub fn to_text(&self, base: Option<Base>) -> Result<String> {
         let text = match self {
             Cid::Zero(mh) => bs58::encode(mh.encode()?).into_string(),
-            Cid::One(base, content_type, mh) => {
+            Cid::One(fallback_base, content_type, mh) => {
                 let mut data = {
                     let codec = Multicodec::from_code(multicodec::CID_V1)?;
                     codec.encode()?
                 };
                 data.extend(content_type.encode()?);
                 data.extend(mh.encode()?);
+                let base = base.unwrap_or(fallback_base.clone());
                 Multibase::from_base(base.clone(), &data)?.encode()?
             }
         };
