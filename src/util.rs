@@ -6,7 +6,7 @@ use rand::{
     SeedableRng,
 };
 
-use std::{ffi, path, time};
+use std::{convert::TryInto, ffi, io, path, time};
 
 use crate::{Error, Result};
 
@@ -158,4 +158,53 @@ pub fn get_env_bool(name: String) -> bool {
 #[inline]
 pub fn xor_slice(a: &[u8], b: &[u8]) -> Vec<u8> {
     a.iter().zip(b.iter()).map(|(a, b)| a ^ b).collect()
+}
+
+/// Read length-prefixed-message.
+pub fn read_lpm<R: io::Read>(r: &mut R) -> Result<Vec<u8>> {
+    use unsigned_varint::decode as uvd;
+
+    let mut buf = [0_u8; 16];
+    err_at!(IOError, r.read(&mut buf[..1]))?;
+
+    let (n, rem) = match buf[0] & 0x80 {
+        0 => err_at!(DecodeError, uvd::u128(&buf[..1]))?,
+        _ => {
+            err_at!(IOError, r.read(&mut buf[1..16]))?;
+            err_at!(DecodeError, uvd::u128(&buf[..]))?
+        }
+    };
+
+    let n = err_at!(Overflow, n.try_into())?;
+    let mut data = vec![0_u8; n];
+    data.copy_from_slice(rem);
+
+    err_at!(IOError, r.read(&mut data[rem.len()..]))?;
+
+    Ok(data)
+}
+
+/// Write data as length-prefixed-message.
+pub fn write_lpm<W: io::Write>(w: &mut W, data: &[u8]) -> Result<usize> {
+    use unsigned_varint::encode as uve;
+
+    let mut buf = [0_u8; 10];
+    let mut n = err_at!(IOError, w.write(uve::usize(data.len(), &mut buf)))?;
+    n += err_at!(IOError, w.write(data))?;
+
+    Ok(n)
+}
+
+/// Write data as length-prefixed-message and flush the writer.
+pub fn flush_lpm<W: io::Write>(w: &mut W, data: &[u8]) -> Result<usize> {
+    let n = match data.len() {
+        0 => 0,
+        _ => {
+            let n = write_lpm(w, data)?;
+            err_at!(IOError, w.flush())?;
+            n
+        }
+    };
+
+    Ok(n)
 }

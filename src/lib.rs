@@ -46,6 +46,7 @@ pub type Result<T> = result::Result<T, Error>;
 /// error location.
 pub enum Error {
     Fatal(String, String),
+    Overflow(String, String),
     IOError(String, String),
     SysFail(String, String),
     IPCFail(String, String),
@@ -70,6 +71,7 @@ impl fmt::Display for Error {
 
         match self {
             Fatal(p, msg) => write!(f, "{} Fatal: {}", p, msg),
+            Overflow(p, msg) => write!(f, "{} Overflow: {}", p, msg),
             IOError(p, msg) => write!(f, "{} IOError: {}", p, msg),
             SysFail(p, msg) => write!(f, "{} SysFail: {}", p, msg),
             IPCFail(p, msg) => write!(f, "{} IPCFail: {}", p, msg),
