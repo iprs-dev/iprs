@@ -24,6 +24,7 @@ pub mod multibase;
 pub mod multicodec;
 // mod multiformat;
 pub mod addr_info;
+pub mod multistream;
 pub mod net_addr;
 pub mod net_conn;
 pub mod pb;
