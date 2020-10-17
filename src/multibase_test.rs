@@ -62,11 +62,11 @@ fn test_base_formats() {
             _ => (),
         }
 
-        let mb = Multibase::from_char(row.1, "hello world".as_bytes()).unwrap();
-        let out = mb.encode().unwrap();
+        let mb = Multibase::with_char(row.1, "hello world".as_bytes()).unwrap();
+        let out = mb.to_text().unwrap();
         println!(".... BASE {:?} encoded {}", row.1, out);
 
-        let data = Multibase::decode(&out).unwrap().to_bytes().unwrap();
+        let data = Multibase::from_text(&out).unwrap().to_bytes().unwrap();
         let text = from_utf8(&data).unwrap();
         assert_eq!(text, "hello world");
     }
@@ -82,8 +82,8 @@ fn test_bs58_multibase() {
     };
     let data = mh.encode().unwrap();
 
-    let mb = Multibase::from_char('z', &data).unwrap();
-    let out1 = mb.encode().unwrap();
+    let mb = Multibase::with_char('z', &data).unwrap();
+    let out1 = mb.to_text().unwrap();
 
     let out2 = bs58::encode(&data).into_string();
     let mut out2 = out2.as_bytes().to_vec();

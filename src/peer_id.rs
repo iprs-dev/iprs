@@ -143,7 +143,7 @@ impl PeerId {
             }
             _ => {
                 let bytes = {
-                    let mb = Multibase::decode(text)?;
+                    let mb = Multibase::from_text(text)?;
                     match mb.to_bytes() {
                         Some(bytes) => bytes,
                         None => err_at!(BadInput, msg: format!("{}", text))?,
@@ -186,7 +186,7 @@ impl PeerId {
         };
         data.extend(self.mh.encode()?);
 
-        Ok(Multibase::from_base(base.clone(), &data)?.encode()?)
+        Ok(Multibase::with_base(base.clone(), &data)?.to_text()?)
     }
 
     /// Encode PeerId into multihash-binary-format.

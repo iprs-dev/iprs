@@ -20,7 +20,7 @@ pub struct Multibase {
 impl Multibase {
     /// Create a multibase encoder from one of the many base formats.
     /// Subsequently encode() on this value will encode the supplied `data`.
-    pub fn from_base(base: multibase::Base, data: &[u8]) -> Result<Multibase> {
+    pub fn with_base(base: multibase::Base, data: &[u8]) -> Result<Multibase> {
         Ok(Multibase {
             base,
             data: Some(data.to_vec()),
@@ -32,7 +32,7 @@ impl Multibase {
     /// supplied `data`.
     ///
     /// [specification]: https://github.com/multiformats/multibase/blob/master/multibase.csv
-    pub fn from_char(ch: char, data: &[u8]) -> Result<Multibase> {
+    pub fn with_char(ch: char, data: &[u8]) -> Result<Multibase> {
         let base = match multibase::Base::from_code(ch) {
             Ok(base) => Ok(base),
             Err(e) => err_at!(BadInput, Err(e), format!("bad char `{}`", ch)),
@@ -44,10 +44,10 @@ impl Multibase {
         })
     }
 
-    /// Encode input binary-data using this base format, encoded stream of
-    /// bytes shall have the <base-prefix> followed by the actual
-    /// base-representation of the `input`.
-    pub fn encode(&self) -> Result<String> {
+    /// Base representation of binary-data, encoded stream of bytes shall
+    /// have the <base-prefix> followed by the actual base-representation
+    /// of the `input`.
+    pub fn to_text(&self) -> Result<String> {
         let text = match &self.data {
             Some(data) => multibase::encode(self.base.clone(), data),
             None => "".to_string(),
@@ -57,8 +57,9 @@ impl Multibase {
 
     /// Decode <base-prefix> followed by the base-representation, into
     /// raw-data. Caller can use the returned value to get the base
-    /// format and the original raw-data.
-    pub fn decode(text: &str) -> Result<Multibase> {
+    /// format and the original raw-data. Refer [Self::to_base],
+    /// [Self::to_bytes].
+    pub fn from_text(text: &str) -> Result<Multibase> {
         let (base, data) = err_at!(BadInput, multibase::decode(text))?;
         let val = Multibase {
             base,

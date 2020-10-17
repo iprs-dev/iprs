@@ -13,14 +13,14 @@ fn test_sha1() {
     {
         let orig = "f11147b502c3a1f48c8609ae212cdfb639dee39673f5e";
         let data = mh.encode().unwrap();
-        let mb = multibase::Multibase::from_base(Base::Base16Lower, &data).unwrap();
-        assert_eq!(mb.encode().unwrap(), orig);
+        let mb = multibase::Multibase::with_base(Base::Base16Lower, &data).unwrap();
+        assert_eq!(mb.to_text().unwrap(), orig);
     }
     {
         let orig = "f7b502c3a1f48c8609ae212cdfb639dee39673f5e";
         let data = mh.to_digest().unwrap();
-        let mb = multibase::Multibase::from_base(Base::Base16Lower, &data).unwrap();
-        assert_eq!(mb.encode().unwrap(), orig);
+        let mb = multibase::Multibase::with_base(Base::Base16Lower, &data).unwrap();
+        assert_eq!(mb.to_text().unwrap(), orig);
     }
 }
 
@@ -36,14 +36,14 @@ fn test_sha2_256() {
     {
         let orig = "f122064ec88ca00b268e5ba1a35678a1b5316d212f4f366b2477232534a8aeca37f3c";
         let data = mh.encode().unwrap();
-        let mb = multibase::Multibase::from_base(Base::Base16Lower, &data).unwrap();
-        assert_eq!(mb.encode().unwrap(), orig);
+        let mb = multibase::Multibase::with_base(Base::Base16Lower, &data).unwrap();
+        assert_eq!(mb.to_text().unwrap(), orig);
     }
     {
         let orig = "f64ec88ca00b268e5ba1a35678a1b5316d212f4f366b2477232534a8aeca37f3c";
         let data = mh.to_digest().unwrap();
-        let mb = multibase::Multibase::from_base(Base::Base16Lower, &data).unwrap();
-        assert_eq!(mb.encode().unwrap(), orig);
+        let mb = multibase::Multibase::with_base(Base::Base16Lower, &data).unwrap();
+        assert_eq!(mb.to_text().unwrap(), orig);
     }
 
     mh.reset().unwrap();
@@ -53,9 +53,9 @@ fn test_sha2_256() {
         .unwrap();
 
     let data = mh.encode().unwrap();
-    let mb = multibase::Multibase::from_base(Base::Base16Lower, &data).unwrap();
+    let mb = multibase::Multibase::with_base(Base::Base16Lower, &data).unwrap();
     let orig = "f1220b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
-    assert_eq!(mb.encode().unwrap(), orig);
+    assert_eq!(mb.to_text().unwrap(), orig);
 }
 
 #[test]

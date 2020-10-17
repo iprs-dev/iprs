@@ -160,7 +160,7 @@ impl Cid {
             }
             _ => {
                 let (base, bytes) = {
-                    let mb = Multibase::decode(text)?;
+                    let mb = Multibase::from_text(text)?;
                     match mb.to_bytes() {
                         Some(bytes) => (mb.to_base(), bytes),
                         None => err_at!(ParseError, msg: format!("{}", text))?,
@@ -198,7 +198,7 @@ impl Cid {
                 data.extend(content_type.encode()?);
                 data.extend(mh.encode()?);
                 let base = base.unwrap_or(fallback_base.clone());
-                Multibase::from_base(base.clone(), &data)?.encode()?
+                Multibase::with_base(base.clone(), &data)?.to_text()?
             }
         };
         Ok(text)
