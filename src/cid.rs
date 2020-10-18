@@ -206,14 +206,14 @@ impl Cid {
 
     /// Decode a binary encoded CID. Refer to [Self::encode] method for details.
     /// Supports both legacy-format and CIDv1-format.
-    pub fn decode(bytes: &[u8]) -> Result<Cid> {
+    pub fn decode(bytes: &[u8]) -> Result<(Cid, &[u8])> {
         use multibase::Base::Base32Lower;
 
-        let cid = match bytes {
+        let (cid, bytes) = match bytes {
             [0x12, 0x20, ..] => {
                 // legacy format v0.
-                let (mh, _) = Multihash::decode(&bytes)?;
-                Cid::Zero(mh)
+                let (mh, bytes) = Multihash::decode(&bytes)?;
+                (Cid::Zero(mh), bytes)
             }
             _ => {
                 // <multicodec-cidv1><codec><multihash>
@@ -223,12 +223,12 @@ impl Cid {
                     _ => err_at!(DecodeError, msg: format!("CID {}", codec))?,
                 }
                 let (content_type, bytes) = Multicodec::decode(bytes)?;
-                let (mh, _) = Multihash::decode(bytes)?;
-                Cid::One(Base32Lower, content_type, mh)
+                let (mh, bytes) = Multihash::decode(bytes)?;
+                (Cid::One(Base32Lower, content_type, mh), bytes)
             }
         };
 
-        Ok(cid)
+        Ok((cid, bytes))
     }
 
     /// Encode to binary format.
