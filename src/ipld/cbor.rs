@@ -3,11 +3,14 @@ use std::{collections::HashMap, convert::TryInto, io};
 use crate::{cid::Cid, Error, Result};
 
 // TODO: https://github.com/cbor/test-vectors
-// TODO: fix stack overflow due to recursion.
-// TODO: check/rewrite " as " convertions.
 
-const TAG_IPLD_CID: u64 = 42;
+/// TAG ID for IPLD Content identifier
+pub const TAG_IPLD_CID: u64 = 42;
 
+/// Recursion limit for nested Cbor objects.
+pub const RECURSION_LIMIT: u32 = 1000;
+
+/// Cbor type, sole purpose is to correspond with [Kind].
 #[derive(Clone)]
 pub enum Cbor {
     Major0(Info, u64),                   // uint 0-23,24,25,26,27
@@ -20,8 +23,66 @@ pub enum Cbor {
     Major7(Info, SimpleValue),           // type refer SimpleValue
 }
 
+impl TryFrom<Kind> for Cbor {
+    type Error = Error;
+
+    fn try_from(val: Cbor) -> Result<Kind> {
+        use crate::ipld::kind::Kind::*;
+        use Cbor::*;
+
+        let kind = match val {
+            Null => Major7(SimpleValue::Null.into(), SimpleValue::Null),
+            Bool(true) => Major7(SimpleValue::True.into(), SimpleValue::True),
+            Bool(false) => Major7(SimpleValue::False.into(), SimpleValue::False),
+            Integer(num) if num >= 0 => {
+                let num: u64 = err_at!(Overflow, num.try_into())?;
+                Major0(num.into(), num)
+            }
+            Integer(num) => {
+                let num: u64 = err_at!(Overflow, i128::abs(num).try_into() - 1)?;
+                Major1(num.into(), num)
+            }
+            Float(num) => {
+                let val = SimpleValue::F64(val);
+                Major7(val.into(), SimpleValue::F32(val))
+            }
+            Bytes(byts) => {
+                let n: u64 = err_at!(Overflow, byts.len().try_into())?;
+                Major2(n.into(), byts)
+            }
+            Text(text) => {
+                let n: u64 = err_at!(Overflow, text.len().try_into())?;
+                Major2(n.into(), text)
+            }
+            Link(cid) => {
+                let tag = Tag::Link(cid);
+                Major6(u64::from(tag.clone()).into(), tag)
+            }
+            List(Vec<Kind>) => {
+                todo!()
+            }
+            Dict(HashMap<String, Kind>) => {
+                todo!()
+            }
+        };
+
+        Ok(kind)
+    }
+}
+
 impl Cbor {
-    fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
+    /// Serialize this cbor value.
+    pub fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
+        self.do_encode(buf, 1)
+    }
+
+    fn do_encode(&self, buf: &mut Vec<u8>, depth: u32) -> Result<usize> {
+        if depth > RECURSION_LIMIT {
+            let prefix = format!("{}:{}", file!(), line!());
+            let msg = "do_encode recursion limit exceeded".to_string();
+            return Err(Error::Overflow(prefix, msg));
+        }
+
         match self {
             Cbor::Major0(info, num) => {
                 let n = encode_hdr(Major::M0, *info, buf)?;
@@ -46,25 +107,25 @@ impl Cbor {
             Cbor::Major4(info, list) => {
                 let n = encode_hdr(Major::M4, *info, buf)?;
                 let m = encode_addnl(list.len().try_into().unwrap(), buf)?;
-                let mut l = 0;
+                let mut acc = 0;
                 for x in list {
-                    l += x.encode(buf)?;
+                    acc += x.do_encode(buf, depth + 1)?;
                 }
-                Ok(n + m + l)
+                Ok(n + m + acc)
             }
             Cbor::Major5(info, dict) => {
                 let n = encode_hdr(Major::M5, *info, buf)?;
                 let m = encode_addnl(dict.len().try_into().unwrap(), buf)?;
-                let mut l = 0;
+                let mut acc = 0;
                 for (key, val) in dict.iter() {
                     let info: Info = {
                         let num: u64 = key.len().try_into().unwrap();
                         num.into()
                     };
-                    l += Cbor::Major3(info, key.clone()).encode(buf)?;
-                    l += val.encode(buf)?;
+                    acc += Cbor::Major3(info, key.clone()).encode(buf)?;
+                    acc += val.do_encode(buf, depth + 1)?;
                 }
-                Ok(n + m + l)
+                Ok(n + m + acc)
             }
             Cbor::Major6(info, tagg) => {
                 let n = encode_hdr(Major::M6, *info, buf)?;
@@ -79,8 +140,20 @@ impl Cbor {
         }
     }
 
-    fn decode<R: io::Read>(r: &mut R) -> Result<Cbor> {
+    /// Deserialize a bytes from reader `r` to Cbor value.
+    pub fn decode<R: io::Read>(r: &mut R) -> Result<Cbor> {
+        Self::do_decode(r, 1)
+    }
+
+    fn do_decode<R: io::Read>(r: &mut R, depth: u32) -> Result<Cbor> {
+        if depth > RECURSION_LIMIT {
+            let prefix = format!("{}:{}", file!(), line!());
+            let msg = "do_decode recursion limit exceeded".to_string();
+            return Err(Error::Overflow(prefix, msg));
+        }
+
         let (major, info) = decode_hdr(r)?;
+
         let val = match major {
             Major::M0 => Cbor::Major0(info, decode_addnl(info, r)?),
             Major::M1 => Cbor::Major1(info, decode_addnl(info, r)?),
@@ -101,7 +174,7 @@ impl Cbor {
                 let mut list: Vec<Cbor> = vec![];
                 let n = decode_addnl(info, r)?;
                 for _ in 0..n {
-                    list.push(Self::decode(r)?);
+                    list.push(Self::do_decode(r, depth + 1)?);
                 }
                 Cbor::Major4(info, list)
             }
@@ -110,7 +183,7 @@ impl Cbor {
                 let n = decode_addnl(info, r)?;
                 for _ in 0..n {
                     let key = extract_key(Self::decode(r)?)?;
-                    let val = Self::decode(r)?;
+                    let val = Self::do_decode(r, depth + 1)?;
                     dict.insert(key, val);
                 }
                 Cbor::Major5(info, dict)
@@ -122,7 +195,7 @@ impl Cbor {
     }
 }
 
-// 3-bit value
+/// 3-bit value for major-type.
 #[derive(Copy, Clone)]
 pub enum Major {
     M0 = 0,
@@ -151,7 +224,7 @@ impl From<u8> for Major {
     }
 }
 
-// 5-bit value
+/// 5-bit value for additional info.
 #[derive(Copy, Clone)]
 pub enum Info {
     Tiny(u8), // 0..=23
@@ -163,6 +236,25 @@ pub enum Info {
     Reserved29,
     Reserved30,
     Indefinite,
+}
+
+impl From<SimpleValue> for Info {
+    fn from(sval: SimpleValue) -> Info {
+        use SimpleValue::*;
+
+        match sval {
+            Unassigned => Info::Tiny(0),
+            True => Info::Tiny(20),
+            False => Info::Tiny(21),
+            Null => Info::Tiny(22),
+            Undefined => Info::Tiny(23),
+            Reserved24(_) => Info::U8,
+            F16(_) => Info::U16,
+            F32(_) => Info::U32,
+            F64(_) => Info::U64,
+            Break => Info::Indefinite,
+        }
+    }
 }
 
 impl From<u8> for Info {
@@ -276,6 +368,15 @@ fn decode_addnl<R: io::Read>(info: Info, r: &mut R) -> Result<u64> {
 pub enum Tag {
     Link(Cid), // TAG_IPLD_CID
     Num(u64),
+}
+
+impl From<Tag> for u64 {
+    fn from(tag: Tag) -> u64 {
+        match tag {
+            Tag::Link(_) => TAG_IPLD_CID,
+            Tag::Num(num) => num,
+        }
+    }
 }
 
 impl Tag {
