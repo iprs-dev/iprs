@@ -24,6 +24,7 @@ pub mod multibase;
 pub mod multicodec;
 // mod multiformat;
 pub mod addr_info;
+pub mod cbor;
 pub mod multistream;
 pub mod net_addr;
 pub mod net_conn;
@@ -57,6 +58,7 @@ pub enum Error {
     ParseError(String, String),
     DecodeError(String, String),
     EncodeError(String, String),
+    CborDecode(String, String),
     DnsError(String, String),
     SigningError(String, String),
     BadInput(String, String),
@@ -82,6 +84,7 @@ impl fmt::Display for Error {
             ParseError(p, msg) => write!(f, "{} ParseError: {}", p, msg),
             DecodeError(p, msg) => write!(f, "{} DecodeError: {}", p, msg),
             EncodeError(p, msg) => write!(f, "{} EncodeError: {}", p, msg),
+            CborDecode(p, msg) => write!(f, "{} CborDecode: {}", p, msg),
             DnsError(p, msg) => write!(f, "{} DnsError: {}", p, msg),
             SigningError(p, msg) => write!(f, "{} SigningError: {}", p, msg),
             BadInput(p, msg) => write!(f, "{} BadInput: {}", p, msg),

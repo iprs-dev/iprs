@@ -15,7 +15,7 @@ pub enum Kind {
     Float(f64),
     Text(String),
     Bytes(Vec<u8>),
-    List(Vec<Kind>),
-    Map(HashMap<Kind, Kind>),
     Link(Link),
+    List(Vec<Kind>),
+    Map(HashMap<String, Kind>),
 }
