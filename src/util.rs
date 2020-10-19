@@ -178,7 +178,7 @@ pub fn read_lpm<R: io::Read>(r: &mut R) -> Result<Vec<u8>> {
         }
     };
 
-    let n = err_at!(Overflow, n.try_into())?;
+    let n = err_at!(FailConvert, n.try_into())?;
     let mut data = vec![0_u8; n];
     data.copy_from_slice(rem);
 

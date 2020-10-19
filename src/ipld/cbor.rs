@@ -1,6 +1,10 @@
-use std::{collections::HashMap, convert::TryInto, io};
+use std::{
+    collections::HashMap,
+    convert::{TryFrom, TryInto},
+    io,
+};
 
-use crate::{cid::Cid, Error, Result, ipld::kind::Kind};
+use crate::{cid::Cid, ipld::kind::Kind, Error, Result};
 
 // TODO: https://github.com/cbor/test-vectors
 
@@ -26,47 +30,40 @@ pub enum Cbor {
 impl TryFrom<Kind> for Cbor {
     type Error = Error;
 
-    fn try_from(val: Cbor) -> Result<Kind> {
+    fn try_from(kind: Kind) -> Result<Cbor> {
         use crate::ipld::kind::Kind::*;
         use Cbor::*;
 
-        let kind = match val {
-            Null => Major7(SimpleValue::Null.into(), SimpleValue::Null),
-            Bool(true) => Major7(SimpleValue::True.into(), SimpleValue::True),
-            Bool(false) => Major7(SimpleValue::False.into(), SimpleValue::False),
+        let val: Cbor = match kind {
+            Null => Cbor::try_from(SimpleValue::Null)?,
+            Bool(true) => Cbor::try_from(SimpleValue::True)?,
+            Bool(false) => Cbor::try_from(SimpleValue::False)?,
             Integer(num) if num >= 0 => {
-                let num: u64 = err_at!(Overflow, num.try_into())?;
+                let num: u64 = err_at!(FailConvert, num.try_into())?;
                 Major0(num.into(), num)
             }
             Integer(num) => {
-                let num: u64 = err_at!(Overflow, i128::abs(num).try_into() - 1)?;
+                let num: u64 = err_at!(FailConvert, u64::try_from(i128::abs(num)))? - 1;
                 Major1(num.into(), num)
             }
-            Float(num) => {
-                let val = SimpleValue::F64(val);
-                Major7(val.into(), SimpleValue::F32(val))
-            }
+            Float(num) => Cbor::try_from(SimpleValue::F64(num))?,
             Bytes(byts) => {
-                let n: u64 = err_at!(Overflow, byts.len().try_into())?;
+                let n: u64 = err_at!(FailConvert, byts.len().try_into())?;
                 Major2(n.into(), byts)
             }
             Text(text) => {
-                let n: u64 = err_at!(Overflow, text.len().try_into())?;
-                Major2(n.into(), text)
+                let n: u64 = err_at!(FailConvert, text.len().try_into())?;
+                Major3(n.into(), text)
             }
             Link(cid) => {
                 let tag = Tag::Link(cid);
                 Major6(u64::from(tag.clone()).into(), tag)
             }
-            List(Vec<Kind>) => {
-                todo!()
-            }
-            Dict(HashMap<String, Kind>) => {
-                todo!()
-            }
+            List(list) => todo!(),
+            Dict(dict) => todo!(),
         };
 
-        Ok(kind)
+        Ok(val)
     }
 }
 
@@ -78,9 +75,7 @@ impl Cbor {
 
     fn do_encode(&self, buf: &mut Vec<u8>, depth: u32) -> Result<usize> {
         if depth > RECURSION_LIMIT {
-            let prefix = format!("{}:{}", file!(), line!());
-            let msg = "do_encode recursion limit exceeded".to_string();
-            return Err(Error::Overflow(prefix, msg));
+            return err_at!(FailCbor, msg: "encode recursion limit exceeded");
         }
 
         match self {
@@ -147,9 +142,7 @@ impl Cbor {
 
     fn do_decode<R: io::Read>(r: &mut R, depth: u32) -> Result<Cbor> {
         if depth > RECURSION_LIMIT {
-            let prefix = format!("{}:{}", file!(), line!());
-            let msg = "do_decode recursion limit exceeded".to_string();
-            return Err(Error::Overflow(prefix, msg));
+            return err_at!(FailCbor, msg: "decode recursion limt exceeded");
         }
 
         let (major, info) = decode_hdr(r)?;
@@ -167,7 +160,7 @@ impl Cbor {
                 let n: usize = decode_addnl(info, r)?.try_into().unwrap();
                 let mut data = vec![0; n];
                 err_at!(IOError, r.read(&mut data))?;
-                let s = err_at!(DecodeError, std::str::from_utf8(&data))?;
+                let s = err_at!(FailCbor, std::str::from_utf8(&data))?;
                 Cbor::Major3(info, s.to_string())
             }
             Major::M4 => {
@@ -208,9 +201,11 @@ pub enum Major {
     M7,
 }
 
-impl From<u8> for Major {
-    fn from(b: u8) -> Major {
-        match b {
+impl TryFrom<u8> for Major {
+    type Error = Error;
+
+    fn try_from(b: u8) -> Result<Major> {
+        let val = match b {
             0 => Major::M0,
             1 => Major::M1,
             2 => Major::M2,
@@ -219,8 +214,10 @@ impl From<u8> for Major {
             5 => Major::M5,
             6 => Major::M6,
             7 => Major::M7,
-            _ => unreachable!(),
-        }
+            _ => err_at!(Fatal, msg: "unreachable")?,
+        };
+
+        Ok(val)
     }
 }
 
@@ -238,9 +235,11 @@ pub enum Info {
     Indefinite,
 }
 
-impl From<u8> for Info {
-    fn from(b: u8) -> Info {
-        match b {
+impl TryFrom<u8> for Info {
+    type Error = Error;
+
+    fn try_from(b: u8) -> Result<Info> {
+        let val = match b {
             0..=23 => Info::Tiny(b),
             24 => Info::U8,
             25 => Info::U16,
@@ -250,8 +249,10 @@ impl From<u8> for Info {
             29 => Info::Reserved29,
             30 => Info::Reserved30,
             31 => Info::Indefinite,
-            _ => unreachable!(),
-        }
+            _ => err_at!(Fatal, msg: "unreachable")?,
+        };
+
+        Ok(val)
     }
 }
 
@@ -270,7 +271,7 @@ impl From<u64> for Info {
 fn encode_hdr(major: Major, info: Info, buf: &mut Vec<u8>) -> Result<usize> {
     let info = match info {
         Info::Tiny(val) if val <= 23 => val,
-        Info::Tiny(val) => err_at!(EncodeError, msg: format!("{} > 23", val))?,
+        Info::Tiny(val) => err_at!(FailCbor, msg: "{} > 23", val)?,
         Info::U8 => 24,
         Info::U16 => 25,
         Info::U32 => 26,
@@ -292,7 +293,7 @@ fn decode_hdr<R: io::Read>(r: &mut R) -> Result<(Major, Info)> {
 
     let major = (b & 0xe0) >> 5;
     let info = b & 0x1f;
-    Ok((major.into(), info.into()))
+    Ok((major.try_into()?, info.try_into()?))
 }
 
 fn encode_addnl(num: u64, buf: &mut Vec<u8>) -> Result<usize> {
@@ -340,7 +341,7 @@ fn decode_addnl<R: io::Read>(info: Info, r: &mut R) -> Result<u64> {
             err_at!(IOError, r.read(&mut scratch[..8]))?;
             u64::from_be_bytes(scratch[..8].try_into().unwrap()) as u64
         }
-        _ => err_at!(DecodeError, msg: format!("no additional value"))?,
+        _ => err_at!(FailCbor, msg: "no additional value")?,
     };
     Ok(n)
 }
@@ -367,7 +368,7 @@ impl Tag {
                 buf.copy_from_slice(&TAG_IPLD_CID.to_be_bytes());
                 let n = {
                     let data = cid.encode()?;
-                    let m: u64 = data.len().try_into().unwrap();
+                    let m: u64 = err_at!(FailCbor, data.len().try_into())?;
                     Cbor::Major2(m.into(), data).encode(buf)?
                 };
                 Ok(1 + n)
@@ -383,18 +384,14 @@ impl Tag {
                     let (cid, _) = Cid::decode(&bytes)?;
                     Ok(Tag::Link(cid))
                 }
-                _ => {
-                    let prefix = format!("{}:{}", file!(), line!());
-                    let msg = "invalid cid".to_string();
-                    Err(Error::DecodeError(prefix, msg))
-                }
+                _ => err_at!(FailCbor, msg: "invalid cid"),
             },
             num => Ok(Tag::Num(num)),
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub enum SimpleValue {
     // 0..=19 unassigned
     Unassigned,
@@ -414,23 +411,23 @@ pub enum SimpleValue {
 impl TryFrom<SimpleValue> for Cbor {
     type Error = Error;
 
-    fn try_from(sval: SimpleValue) -> Result<Info> {
+    fn try_from(sval: SimpleValue) -> Result<Cbor> {
         use SimpleValue::*;
 
-        match sval {
-            Unassigned => {
-                err_at!(NotSupported, msg: format!("simple-value-unassigned")?
-            }
-            True => Info::Tiny(20),
-            False => Info::Tiny(21),
-            Null => Info::Tiny(22),
-            Undefined => Info::Tiny(23),
-            Reserved24(_) => Info::U8,
-            F16(_) => Info::U16,
-            F32(_) => Info::U32,
-            F64(_) => Info::U64,
-            Break => Info::Indefinite,
-        }
+        let val = match sval {
+            Unassigned => err_at!(FailConvert, msg: "simple-value-unassigned")?,
+            True => Cbor::Major7(Info::Tiny(20), sval),
+            False => Cbor::Major7(Info::Tiny(21), sval),
+            Null => Cbor::Major7(Info::Tiny(22), sval),
+            Undefined => Cbor::Major7(Info::Tiny(23), sval),
+            Reserved24(_) => Cbor::Major7(Info::U8, sval),
+            F16(_) => Cbor::Major7(Info::U16, sval),
+            F32(_) => Cbor::Major7(Info::U32, sval),
+            F64(_) => Cbor::Major7(Info::U64, sval),
+            Break => Cbor::Major7(Info::Indefinite, sval),
+        };
+
+        Ok(val)
     }
 }
 
@@ -501,9 +498,6 @@ impl SimpleValue {
 fn extract_key(val: Cbor) -> Result<String> {
     match val {
         Cbor::Major3(_, s) => Ok(s),
-        _ => {
-            let prefix = format!("{}:{}", file!(), line!());
-            Err(Error::DecodeError(prefix, "invalid key".to_string()))
-        }
+        _ => err_at!(FailCbor, msg: "invalid key"),
     }
 }
