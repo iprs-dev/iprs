@@ -30,10 +30,7 @@ impl<'a> TryFrom<&'a path::Path> for Unix {
     fn try_from(path: &'a path::Path) -> Result<Unix> {
         match path.to_str() {
             Some(path) => Ok(path.into()),
-            None => {
-                let msg = format!("unix net path not str {:?}", path);
-                err_at!(Invalid, msg: msg)
-            }
+            None => err_at!(Invalid, msg: "unix net path not str {:?}", path),
         }
     }
 }
@@ -51,7 +48,7 @@ impl Unix {
                 };
                 (Unix { path }, &parts[parts.len()..])
             }
-            _ => err_at!(BadAddr, msg: format!("dns {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "dns {:?}", parts)?,
         };
 
         Ok(val)

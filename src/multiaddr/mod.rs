@@ -1,8 +1,7 @@
 macro_rules! read_slice {
     ($data:expr, $n:expr, $prefix:expr) => {
         if $data.len() < $n {
-            let msg = format!("{} insufficient bytes {}", $prefix, $n);
-            err_at!(DecodeError, msg: msg)
+            err_at!(DecodeError, msg: "{} insufficient bytes {}", $prefix, $n)
         } else {
             Ok((&$data[..$n], &$data[$n..]))
         }
@@ -80,18 +79,15 @@ macro_rules! impl_multiaddr {
                 let parts: Vec<&str> = text.split('/').collect();
 
                 if parts.len() == 0 {
-                    err_at!(BadAddr, msg: format!("empty multiaddr {}", text))
+                    err_at!(BadAddr, msg: "empty multiaddr {}", text)
                 } else if parts[0].is_empty() {
-                    err_at!(BadAddr, msg: format!("multiaddr must start with '/'"))
+                    err_at!(BadAddr, msg: "multiaddr must start with '/'")
                 } else if parts[1..].len() == 0 {
-                    err_at!(BadAddr, msg: format!("empty multiaddr {}", text))
+                    err_at!(BadAddr, msg: "empty multiaddr {}", text)
                 } else {
                     match Self::parse_text_parts(&parts[1..])? {
                         (ma, []) => Ok(ma),
-                        (_, _) => {
-                            let msg = format!("invalid multiaddr {:?}", text);
-                            err_at!(BadAddr, msg: msg)
-                        }
+                        (_, _) => err_at!(BadAddr, msg: "invalid multiaddr {:?}", text),
                     }
                 }
             }
@@ -126,10 +122,7 @@ macro_rules! impl_multiaddr {
                         let (ma, tail) = Self::parse_text_parts(tail)?;
                         (Multiaddr::P2p(val, Box::new(ma)), tail)
                     }
-                    parts => {
-                        let msg = format!("invalid multiaddr {:?}", parts);
-                        err_at!(BadAddr, msg: msg)?
-                    }
+                    parts => err_at!(BadAddr, msg: "invalid multiaddr {:?}", parts)?,
                 };
 
                 Ok((maddr, tail))
@@ -174,10 +167,7 @@ macro_rules! impl_multiaddr {
                             (Multiaddr::$var(val, Box::new(ma)), data)
                         }
                     )*
-                    code => {
-                        let msg = format!("invalid code {}", code);
-                        err_at!(DecodeError, msg: msg)?
-                    }
+                    code => err_at!(DecodeError, msg: "invalid code {}", code)?,
                 };
 
                 Ok((ma, data))
@@ -264,7 +254,7 @@ macro_rules! impl_multiaddr {
                         Multiaddr::Ipfs(val, box Multiaddr::None) => {
                             Box::new(Multiaddr::Ipfs(val, ma))
                         }
-                        _ => err_at!(Invalid, msg: format!("can't joint"))?
+                        _ => err_at!(Invalid, msg: "can't joint")?
                     }
                 }
 

@@ -51,10 +51,7 @@ impl Keypair {
     pub fn from_pkcs8(der: &mut [u8]) -> Result<Keypair> {
         let key_pair = match RsaKeyPair::from_pkcs8(&der) {
             Ok(val) => Ok(val),
-            Err(err) => {
-                let msg = format!("RSA PKCS#8 PrivateKeyInfo");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(DecodeError, Err(err), "RSA PKCS#8 PrivateKeyInfo"),
         }?;
 
         der.zeroize();
@@ -78,10 +75,7 @@ impl Keypair {
         let rng = SystemRandom::new();
         match self.key_pair.sign(&RSA_PKCS1_SHA256, &rng, &data, &mut sig) {
             Ok(()) => Ok(sig),
-            Err(err) => {
-                let msg = format!("RSA PublicKey Signing");
-                err_at!(SigningError, Err(err), msg)
-            }
+            Err(err) => err_at!(SigningError, Err(err), "RSA PublicKey Signing"),
         }
     }
 }
@@ -127,10 +121,11 @@ impl PublicKey {
 
         match spki.serialize(buf.iter_mut()) {
             Ok(_) => Ok(buf),
-            Err(err) => {
-                let msg = format!("RSA X.509 public key encoding failed");
-                err_at!(EncodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(
+                EncodeError,
+                Err(err),
+                "RSA X.509 public key encoding failed"
+            ),
         }
     }
 
@@ -139,10 +134,7 @@ impl PublicKey {
     pub fn decode_x509(data: &[u8]) -> Result<PublicKey> {
         match Asn1SubjectPublicKeyInfo::deserialize(data.iter()) {
             Ok(val) => Ok(val.subject_public_key.0),
-            Err(err) => {
-                let msg = format!("RSA X.509");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(DecodeError, Err(err), "RSA X.509")?,
         }
     }
 }

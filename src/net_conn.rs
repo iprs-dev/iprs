@@ -21,14 +21,8 @@ impl Listener {
                 let listn = err_at!(IOError, unix::net::UnixListener::bind(path))?;
                 Listener::Unix(listn)
             }
-            NetAddr::Unix(addr) => {
-                let msg = format!("invalid addr {:?}", addr);
-                err_at!(Invalid, msg: msg)?
-            }
-            NetAddr::Udp(_) => {
-                let msg = format!("no listener for udp {:?}", addr);
-                err_at!(Invalid, msg: msg)?
-            }
+            NetAddr::Unix(addr) => err_at!(Invalid, msg: "invalid addr {:?}", addr)?,
+            NetAddr::Udp(_) => err_at!(Invalid, msg: "no listener for udp {:?}", addr)?,
         };
 
         Ok(val)
@@ -108,14 +102,8 @@ impl Conn {
                     conn,
                 }
             }
-            NetAddr::Unix(raddr) => {
-                let msg = format!("invalid addr {:?}", raddr);
-                err_at!(Invalid, msg: msg)?
-            }
-            NetAddr::Udp(_) => {
-                let msg = format!("no dial for udp {:?}", raddr);
-                err_at!(Invalid, msg: msg)?
-            }
+            NetAddr::Unix(raddr) => err_at!(Invalid, msg: "invalid addr {:?}", raddr)?,
+            NetAddr::Udp(_) => err_at!(Invalid, msg: "no dial for udp {:?}", raddr)?,
         };
 
         Ok(conn)

@@ -134,10 +134,7 @@ impl PeerId {
         let peer_id = match (chars.next(), chars.next()) {
             (Some('Q'), Some('m')) | (Some('1'), Some(_)) => {
                 // legacy format base58btc.
-                let bytes = {
-                    let res = bs58::decode(text.as_bytes()).into_vec();
-                    err_at!(BadInput, res)?
-                };
+                let bytes = err_at!(BadInput, bs58::decode(text.as_bytes()).into_vec())?;
                 let (mh, _) = Multihash::decode(&bytes)?;
                 PeerId { mh }
             }
@@ -146,20 +143,20 @@ impl PeerId {
                     let mb = Multibase::from_text(text)?;
                     match mb.to_bytes() {
                         Some(bytes) => bytes,
-                        None => err_at!(BadInput, msg: format!("{}", text))?,
+                        None => err_at!(BadInput, msg: "{}", text)?,
                     }
                 };
                 // <multicodec-cidv1><libp2p-key-codec><multihash>
                 let (codec, bytes) = Multicodec::decode(&bytes)?;
                 match codec.to_code() {
                     multicodec::CID_V1 => (),
-                    _ => err_at!(BadInput, msg: format!("CID {}", codec))?,
+                    _ => err_at!(BadInput, msg: "CID {}", codec)?,
                 }
 
                 let (codec, bytes) = Multicodec::decode(bytes)?;
                 match codec.to_code() {
                     multicodec::LIBP2P_KEY => (),
-                    _ => err_at!(BadInput, msg: format!("codec {}", codec))?,
+                    _ => err_at!(BadInput, msg: "codec {}", codec)?,
                 }
                 let (mh, _) = Multihash::decode(bytes)?;
                 PeerId { mh }

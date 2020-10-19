@@ -75,7 +75,7 @@ impl Ipfsd {
         match self.handle.take() {
             Some(handle) => match handle.join() {
                 Ok(val) => Ok(val?),
-                Err(err) => err_at!(ThreadFail, msg: format!("{:?}", err)),
+                Err(err) => err_at!(ThreadFail, msg: "{:?}", err),
             },
             None => Ok(()),
         }

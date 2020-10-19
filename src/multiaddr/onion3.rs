@@ -18,7 +18,7 @@ impl Onion3 {
                 let (hash, port) = parse_onion3_addr(addr)?;
                 (Onion3 { hash, port }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("onion3 {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "onion3 {:?}", parts)?,
         };
 
         Ok(val)
@@ -61,23 +61,21 @@ fn parse_onion3_addr(addr: &str) -> Result<(Vec<u8>, u16)> {
 
     let mut parts = addr.split(':');
     let (hash, port) = match (parts.next(), parts.next()) {
-        (Some(base_hash), Some(_)) if base_hash.len() != 56 => {
-            err_at!(BadAddr, msg: format!("{}", addr))?
-        }
+        (Some(base_hash), Some(_)) if base_hash.len() != 56 => err_at!(BadAddr, msg: "{}", addr)?,
         (Some(base_hash), Some(port)) => {
             let base_hash = base_hash.to_uppercase();
             let hash = err_at!(BadAddr, BASE32.decode(base_hash.as_bytes()))?;
             if hash.len() != 35 {
-                err_at!(BadAddr, msg: format!("base_hash: {}", base_hash))?
+                err_at!(BadAddr, msg: "base_hash: {}", base_hash)?
             }
             let port: u16 = err_at!(BadAddr, port.parse())?;
             (hash, port)
         }
-        (_, _) => err_at!(BadAddr, msg: format!("{}", addr))?,
+        (_, _) => err_at!(BadAddr, msg: "{}", addr)?,
     };
 
     if port < 1 {
-        err_at!(BadAddr, msg: format!("port {}", port))?
+        err_at!(BadAddr, msg: "port {}", port)?
     }
     Ok((hash, port))
 }

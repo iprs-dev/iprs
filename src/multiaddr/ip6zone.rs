@@ -15,7 +15,7 @@ impl Ip6zone {
                 let addr = addr.as_bytes().to_vec();
                 (Ip6zone { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("ip6zone {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "ip6zone {:?}", parts)?,
         };
 
         Ok(val)

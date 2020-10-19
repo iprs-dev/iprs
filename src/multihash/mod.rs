@@ -155,7 +155,7 @@ impl Multihash {
             // multicodec::X11 => unimplemented!(),
             // multicodec::BMT => unimplemented!(),
             // multicodec::SHA2_256_TRUNC254_PADDED => unimplemented!(),
-            codec => err_at!(NotImplemented, msg: format!("codec {}", codec))?,
+            codec => err_at!(NotImplemented, msg: "codec {}", codec)?,
         };
 
         let mut mh: Multihash = inner.into();
@@ -212,7 +212,7 @@ impl Multihash {
                 let hasher = RipeMd::decode(code, digest)?;
                 Inner::RipeMd(codec, hasher)
             }
-            codec => err_at!(NotImplemented, msg: format!("codec {}", codec))?,
+            codec => err_at!(NotImplemented, msg: "codec {}", codec)?,
         };
 
         Ok(inner.into())
@@ -260,7 +260,7 @@ impl Multihash {
             if n <= rem.len() {
                 Ok((codec, &rem[..n], &rem[n..]))
             } else {
-                err_at!(BadInput, msg: format!("hash-len {}", n))
+                err_at!(BadInput, msg: "hash-len {}", n)
             }
         }?;
 
@@ -294,7 +294,7 @@ impl Multihash {
         use unsigned_varint::encode;
 
         let digest = match &self.inner {
-            Inner::Binary(_) => err_at!(Fatal, msg: format!("unreachable!"))?,
+            Inner::Binary(_) => err_at!(Fatal, msg: "unreachable!")?,
             Inner::Identity(_, hasher) => hasher.as_digest()?,
             Inner::Sha1(_, hasher) => hasher.as_digest()?,
             Inner::Sha2(_, hasher) => hasher.as_digest()?,
@@ -352,10 +352,7 @@ impl Multihash {
             Inner::Md5(_, hasher) => hasher.write(data)?,
             Inner::Skein(_, hasher) => hasher.write(data)?,
             Inner::RipeMd(_, hasher) => hasher.write(data)?,
-            Inner::Binary(_) => {
-                let msg = format!("mh in binary form");
-                err_at!(Invalid, msg: msg)?
-            }
+            Inner::Binary(_) => err_at!(Invalid, msg: "mh in binary form")?,
         };
         Ok(self)
     }
@@ -375,10 +372,7 @@ impl Multihash {
             Inner::Md5(_, hasher) => hasher.finish()?,
             Inner::Skein(_, hasher) => hasher.finish()?,
             Inner::RipeMd(_, hasher) => hasher.finish()?,
-            Inner::Binary(_) => {
-                let msg = format!("mh in binary form");
-                err_at!(Invalid, msg: msg)?
-            }
+            Inner::Binary(_) => err_at!(Invalid, msg: "mh in binary form")?,
         };
         Ok(self)
     }
@@ -399,10 +393,7 @@ impl Multihash {
             Inner::Md5(_, hasher) => hasher.reset()?,
             Inner::Skein(_, hasher) => hasher.reset()?,
             Inner::RipeMd(_, hasher) => hasher.reset()?,
-            Inner::Binary(_) => {
-                let msg = format!("mh in binary form");
-                err_at!(Invalid, msg: msg)?
-            }
+            Inner::Binary(_) => err_at!(Invalid, msg: "mh in binary form")?,
         };
         Ok(self)
     }

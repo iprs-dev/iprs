@@ -15,7 +15,7 @@ impl Dns6 {
                 let addr = addr.as_bytes().to_vec();
                 (Dns6 { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("dns6 {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "dns6 {:?}", parts)?,
         };
 
         Ok(val)

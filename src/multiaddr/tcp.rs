@@ -23,7 +23,7 @@ impl Tcp {
                 let port: u16 = err_at!(BadAddr, port.parse())?;
                 (Tcp { port }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("tcp {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "tcp {:?}", parts)?,
         };
 
         Ok(val)

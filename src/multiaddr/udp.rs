@@ -23,7 +23,7 @@ impl Udp {
                 let port: u16 = err_at!(BadAddr, port.parse())?;
                 (Udp { port }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("udp {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "udp {:?}", parts)?,
         };
 
         Ok(val)

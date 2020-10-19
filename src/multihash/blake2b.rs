@@ -82,7 +82,7 @@ impl Blake2b {
             multicodec::BLAKE2B_496 => 496,
             multicodec::BLAKE2B_504 => 504,
             multicodec::BLAKE2B_512 => 512,
-            _ => err_at!(Fatal, msg: format!("unreachable"))?,
+            _ => err_at!(Fatal, msg: "unreachable")?,
         };
         Ok(len)
     }
@@ -116,7 +116,7 @@ impl Blake2b {
     pub(crate) fn write(&mut self, bytes: &[u8]) -> Result<()> {
         match &self.digest {
             None => self.hasher.update(bytes),
-            Some(_) => err_at!(Invalid, msg: format!("finalized"))?,
+            Some(_) => err_at!(Invalid, msg: "finalized")?,
         };
         Ok(())
     }
@@ -124,7 +124,7 @@ impl Blake2b {
     pub(crate) fn finish(&mut self) -> Result<()> {
         self.digest = match &self.digest {
             None => Some(self.hasher.finalize().as_bytes().to_vec()),
-            Some(_) => err_at!(Invalid, msg: format!("double finalize"))?,
+            Some(_) => err_at!(Invalid, msg: "double finalize")?,
         };
         Ok(())
     }
@@ -144,7 +144,7 @@ impl Blake2b {
     pub(crate) fn as_digest(&self) -> Result<&[u8]> {
         match &self.digest {
             Some(digest) => Ok(digest),
-            None => err_at!(Invalid, msg: format!("no digest")),
+            None => err_at!(Invalid, msg: "no digest"),
         }
     }
 }

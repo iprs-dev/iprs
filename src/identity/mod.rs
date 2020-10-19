@@ -193,17 +193,11 @@ impl PublicKey {
         use prost::Message;
 
         #[allow(unused_mut)] // Due to conditional compilation.
-        let mut pubkey = {
-            let res = key_pair_proto::PublicKey::decode(bytes);
-            err_at!(DecodeError, res)?
-        };
+        let mut pubkey = err_at!(DecodeError, key_pair_proto::PublicKey::decode(bytes))?;
 
         let key_type = match key_pair_proto::KeyType::from_i32(pubkey.r#type) {
             Some(typ) => Ok(typ),
-            None => {
-                let msg = format!("unknown key type: {}", pubkey.r#type);
-                err_at!(DecodeError, msg: msg)
-            }
+            None => err_at!(DecodeError, msg: "unknown key type: {}", pubkey.r#type)?,
         }?;
 
         match key_type {
@@ -216,8 +210,7 @@ impl PublicKey {
             }
             #[cfg(target_arch = "wasm32")]
             key_pair_proto::KeyType::Rsa => {
-                let msg = format!("RSA disabled at compile-time");
-                err_at!(DecodeError, msg: msg)
+                err_at!(DecodeError, msg: "RSA disabled at compile-time")
             }
             #[cfg(feature = "secp256k1")]
             key_pair_proto::KeyType::Secp256k1 => {
@@ -225,8 +218,7 @@ impl PublicKey {
             }
             #[cfg(not(feature = "secp256k1"))]
             key_pair_proto::KeyType::Secp256k1 => {
-                let msg = format!("secp256k1 disabled at compile-time");
-                err_at!(DecodeError, msg: msg)
+                err_at!(DecodeError, msg: "secp256k1 disabled at compile-time")
             }
         }
     }

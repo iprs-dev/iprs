@@ -15,7 +15,7 @@ impl Garlic64 {
                 let addr = parse_garlic64(addr)?;
                 (Garlic64 { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("garlic64 {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "garlic64 {:?}", parts)?,
         };
 
         Ok(val)
@@ -64,7 +64,7 @@ fn parse_garlic64(addr: &str) -> Result<Vec<u8>> {
     // i2p base64 address will be between 516 and 616 characters long,
     // depending on certificate type
     if addr.len() < 516 || addr.len() > 616 {
-        err_at!(BadAddr, msg: format!("invalid i2p addr base64 {}", addr))
+        err_at!(BadAddr, msg: "invalid i2p addr base64 {}", addr)
     } else {
         Ok(err_at!(BadAddr, GARLIC64.decode(addr.as_bytes()))?)
     }

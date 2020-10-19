@@ -114,7 +114,7 @@ impl Sha3 {
                 let hasher = sha3::Keccak512::new();
                 Sha3::Keccak512 { hasher, digest }
             }
-            _ => err_at!(Fatal, msg: format!("unreachable"))?,
+            _ => err_at!(Fatal, msg: "unreachable")?,
         };
         Ok(val)
     }
@@ -161,7 +161,7 @@ impl Sha3 {
                 hasher: sha3::Keccak512::new(),
                 digest: Some(digest.to_vec()),
             },
-            _ => err_at!(Fatal, msg: format!("unreachable"))?,
+            _ => err_at!(Fatal, msg: "unreachable")?,
         };
         Ok(val)
     }
@@ -228,7 +228,7 @@ impl Sha3 {
             } => {
                 <sha3::Keccak512 as digest::Digest>::update(hasher, bytes);
             }
-            _ => err_at!(Invalid, msg: format!("finalized"))?,
+            _ => err_at!(Invalid, msg: "finalized")?,
         };
         Ok(())
     }
@@ -303,7 +303,7 @@ impl Sha3 {
             } => {
                 *digest = Some(hasher.finalize_reset().as_slice().to_vec());
             }
-            _ => err_at!(Invalid, msg: format!("double finalize"))?,
+            _ => err_at!(Invalid, msg: "double finalize")?,
         };
         Ok(())
     }
@@ -367,7 +367,7 @@ impl Sha3 {
                 digest: Some(digest),
                 ..
             } => Ok(digest),
-            _ => err_at!(Invalid, msg: format!("no digest")),
+            _ => err_at!(Invalid, msg: "no digest"),
         }
     }
 }

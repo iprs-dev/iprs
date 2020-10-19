@@ -82,10 +82,7 @@ impl Keypair {
     pub fn to_secret_key(&self) -> Result<SecretKey> {
         match SecretKey::from_bytes(&mut self.key_pair.secret.to_bytes()) {
             Ok(secret_key) => Ok(secret_key),
-            Err(err) => {
-                let msg = format!("to secret key");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(DecodeError, Err(err), "to secret key"),
         }
     }
 
@@ -104,10 +101,7 @@ impl Keypair {
                 kp.zeroize();
                 Ok(Keypair { key_pair })
             }
-            Err(err) => {
-                let msg = format!("Ed25519 keypair");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(DecodeError, Err(err), "Ed25519 keypair"),
         }
     }
 
@@ -121,20 +115,14 @@ impl Keypair {
             let mut sk_bytes = self.key_pair.secret.to_bytes();
             match SecretKey::from_bytes(&mut sk_bytes) {
                 Ok(val) => Ok(val.secret_key),
-                Err(err) => {
-                    let msg = format!("try_clone ed25519::SecretKey");
-                    err_at!(DecodeError, Err(err), msg)
-                }
+                Err(err) => err_at!(DecodeError, Err(err), "try_clone ed25519::SecretKey"),
             }?
         };
         let public = {
             let pk_bytes = self.key_pair.public.to_bytes();
             match ed25519::PublicKey::from_bytes(&pk_bytes) {
                 Ok(public_key) => Ok(public_key),
-                Err(err) => {
-                    let msg = format!("try_clone ed25519::PublicKey");
-                    err_at!(DecodeError, Err(err), msg)
-                }
+                Err(err) => err_at!(DecodeError, Err(err), "try_clone ed25519::PublicKey"),
             }?
         };
 
@@ -167,10 +155,7 @@ impl PublicKey {
     pub fn decode(k: &[u8]) -> Result<PublicKey> {
         match ed25519::PublicKey::from_bytes(k) {
             Ok(public_key) => Ok(PublicKey { public_key }),
-            Err(err) => {
-                let msg = format!("Ed25519 public key");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(DecodeError, Err(err), "Ed25519 public key"),
         }
     }
 }
@@ -202,10 +187,7 @@ impl SecretKey {
             rand::thread_rng().fill_bytes(&mut bytes);
             match ed25519::SecretKey::from_bytes(&bytes) {
                 Ok(secret_key) => Ok(secret_key),
-                Err(err) => {
-                    let msg = format!("Ed25519 generate bad length");
-                    err_at!(BadInput, Err(err), msg)
-                }
+                Err(err) => err_at!(BadInput, Err(err), "Ed25519 generate bad length"),
             }?
         };
         Ok(SecretKey { secret_key })
@@ -218,10 +200,7 @@ impl SecretKey {
         let sk_bytes = sk_bytes.as_mut();
         let secret_key = match ed25519::SecretKey::from_bytes(&*sk_bytes) {
             Ok(secret_key) => Ok(secret_key),
-            Err(err) => {
-                let msg = format!("Ed25519 secret key");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(DecodeError, Err(err), "Ed25519 secret key"),
         }?;
 
         sk_bytes.zeroize();
@@ -233,10 +212,7 @@ impl SecretKey {
         let mut sk_bytes = self.secret_key.to_bytes();
         match Self::from_bytes(&mut sk_bytes) {
             Ok(val) => Ok(val),
-            Err(err) => {
-                let msg = format!("try_clone ed25519::SecretKey");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(DecodeError, Err(err), "try_clone ed25519::SecretKey"),
         }
     }
 }

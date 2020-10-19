@@ -23,7 +23,7 @@ impl Ip4 {
                 let addr: net::Ipv4Addr = err_at!(BadAddr, addr.parse())?;
                 (Ip4 { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("ip4 {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "ip4 {:?}", parts)?,
         };
 
         Ok(val)

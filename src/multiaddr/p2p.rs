@@ -20,7 +20,7 @@ impl P2p {
                 let peer_id = PeerId::from_text(addr)?;
                 (P2p { peer_id }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("p2p {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "p2p {:?}", parts)?,
         };
 
         Ok(val)

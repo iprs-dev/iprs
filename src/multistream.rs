@@ -160,7 +160,7 @@ fn read<T: io::Read>(r: &mut T) -> Result<Vec<String>> {
     let nl = '\n' as u8;
     let mut data = util::read_lpm(r)?;
     let lines = match data.pop() {
-        None => err_at!(IOError, msg: format!("empty multistream read"))?,
+        None => err_at!(IOError, msg: "empty multistream read")?,
         Some(b) if b == nl => {
             let mut lines = vec![];
             for line in data.rsplit(|b| *b == nl) {
@@ -168,7 +168,7 @@ fn read<T: io::Read>(r: &mut T) -> Result<Vec<String>> {
             }
             lines
         }
-        _ => err_at!(IOError, msg: format!("multistream miss nl suffix"))?,
+        _ => err_at!(IOError, msg: "multistream miss nl suffix")?,
     };
 
     Ok(lines)

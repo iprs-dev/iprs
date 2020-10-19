@@ -48,7 +48,7 @@ impl NetAddr {
                     let mut iter = err_at!(DnsError, (name, port).to_socket_addrs())?;
                     match iter.next() {
                         Some(addr) => addr,
-                        None => err_at!(DnsError, msg: format!("{}", name))?,
+                        None => err_at!(DnsError, msg: "{}", name)?,
                     }
                 };
                 NetAddr::Tcp(addr)
@@ -62,7 +62,7 @@ impl NetAddr {
                     let mut iter = err_at!(DnsError, (name, port).to_socket_addrs())?;
                     match iter.next() {
                         Some(addr) => addr,
-                        None => err_at!(DnsError, msg: format!("{}", name))?,
+                        None => err_at!(DnsError, msg: "{}", name)?,
                     }
                 };
                 NetAddr::Tcp(addr)
@@ -109,7 +109,7 @@ impl NetAddr {
             }
             ma => {
                 let s = ma.to_text()?;
-                err_at!(Invalid, msg: format!("bad net addr {}", s))?
+                err_at!(Invalid, msg: "bad net addr {}", s)?
             }
         };
 
@@ -159,10 +159,7 @@ impl NetAddr {
                     let unix: multiaddr::unix::Unix = path.try_into()?;
                     Multiaddr::Unix(unix, Box::new(Multiaddr::None))
                 }
-                None => {
-                    let msg = format!("invalid unix net path {:?}", addr);
-                    err_at!(Invalid, msg: msg)?
-                }
+                None => err_at!(Invalid, msg: "invalid unix net path {:?}", addr)?,
             },
         };
 

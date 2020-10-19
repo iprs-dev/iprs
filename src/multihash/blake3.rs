@@ -32,7 +32,7 @@ impl Blake3 {
     pub(crate) fn write(&mut self, bytes: &[u8]) -> Result<()> {
         match &self.digest {
             None => self.hasher.update(bytes),
-            Some(_) => err_at!(Invalid, msg: format!("finalized"))?,
+            Some(_) => err_at!(Invalid, msg: "finalized")?,
         };
         Ok(())
     }
@@ -43,7 +43,7 @@ impl Blake3 {
                 let hash = blake3::Hasher::finalize(&self.hasher);
                 Some(hash.as_bytes().to_vec())
             }
-            Some(_) => err_at!(Invalid, msg: format!("double finalize"))?,
+            Some(_) => err_at!(Invalid, msg: "double finalize")?,
         };
         Ok(())
     }
@@ -56,7 +56,7 @@ impl Blake3 {
     pub(crate) fn as_digest(&self) -> Result<&[u8]> {
         match &self.digest {
             Some(digest) => Ok(digest),
-            None => err_at!(Invalid, msg: format!("no digest")),
+            None => err_at!(Invalid, msg: "no digest"),
         }
     }
 }

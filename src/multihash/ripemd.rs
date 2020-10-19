@@ -39,7 +39,7 @@ impl RipeMd {
                 hasher: ripemd320::Ripemd320::new(),
                 digest: None,
             },
-            _ => err_at!(Invalid, msg: format!("unreachable"))?,
+            _ => err_at!(Invalid, msg: "unreachable")?,
         };
         Ok(val)
     }
@@ -55,7 +55,7 @@ impl RipeMd {
                 hasher: ripemd320::Ripemd320::new(),
                 digest,
             },
-            _ => err_at!(Invalid, msg: format!("unreachable"))?,
+            _ => err_at!(Invalid, msg: "unreachable")?,
         };
         Ok(val)
     }
@@ -70,7 +70,7 @@ impl RipeMd {
                 hasher,
                 digest: None,
             } => hasher.update(bytes),
-            _ => err_at!(Invalid, msg: format!("finalized"))?,
+            _ => err_at!(Invalid, msg: "finalized")?,
         };
         Ok(())
     }
@@ -89,7 +89,7 @@ impl RipeMd {
             } => {
                 *digest = Some(hasher.finalize_reset().as_slice().to_vec());
             }
-            _ => err_at!(Invalid, msg: format!("double finalize"))?,
+            _ => err_at!(Invalid, msg: "double finalize")?,
         };
         Ok(())
     }
@@ -113,7 +113,7 @@ impl RipeMd {
                 digest: Some(digest),
                 ..
             } => Ok(digest),
-            _ => err_at!(Invalid, msg: format!("no digest")),
+            _ => err_at!(Invalid, msg: "no digest"),
         }
     }
 }

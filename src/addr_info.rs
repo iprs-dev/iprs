@@ -57,7 +57,7 @@ impl AddrInfo {
         let peer_id = match comps.pop() {
             Some(Multiaddr::P2p(val, _)) => val.to_peer_id(),
             Some(Multiaddr::Ipfs(val, _)) => val.to_peer_id(),
-            _ => err_at!(Invalid, msg: format!("not p2p address"))?,
+            _ => err_at!(Invalid, msg: "not p2p address")?,
         };
 
         let addr_info = AddrInfo {

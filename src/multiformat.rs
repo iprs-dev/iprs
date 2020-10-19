@@ -64,7 +64,7 @@ impl Multiformat {
                 if let Ok((val, rem)) = Multihash::decode(buf) {
                     (Multiformat::Multihash(codec, val), rem)
                 } else {
-                    err_at!(BadInput, msg: format!("{}", codec))?
+                    err_at!(BadInput, msg: "{}", codec)?
                 }
             }
         };

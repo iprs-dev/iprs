@@ -49,7 +49,7 @@ impl Sha2 {
                 digest,
                 double: false,
             },
-            _ => err_at!(Fatal, msg: format!("unreachable"))?,
+            _ => err_at!(Fatal, msg: "unreachable")?,
         };
         Ok(val)
     }
@@ -71,7 +71,7 @@ impl Sha2 {
                 digest: Some(digest.to_vec()),
                 double: false,
             },
-            _ => err_at!(Fatal, msg: format!("unreachable"))?,
+            _ => err_at!(Fatal, msg: "unreachable")?,
         };
         Ok(val)
     }
@@ -88,7 +88,7 @@ impl Sha2 {
                 digest: None,
                 ..
             } => hasher.update(bytes),
-            _ => err_at!(Invalid, msg: format!("finalized"))?,
+            _ => err_at!(Invalid, msg: "finalized")?,
         };
         Ok(())
     }
@@ -131,7 +131,7 @@ impl Sha2 {
                     Some(hasher.finalize_reset().as_slice().to_vec())
                 };
             }
-            _ => err_at!(Invalid, msg: format!("double finalize"))?,
+            _ => err_at!(Invalid, msg: "double finalize")?,
         };
         Ok(())
     }
@@ -155,7 +155,7 @@ impl Sha2 {
                 digest: Some(digest),
                 ..
             } => Ok(digest),
-            _ => err_at!(Invalid, msg: format!("no digest")),
+            _ => err_at!(Invalid, msg: "no digest"),
         }
     }
 }

@@ -15,7 +15,7 @@ impl Dnsaddr {
                 let addr = addr.as_bytes().to_vec();
                 (Dnsaddr { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("dnsaddr {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "dnsaddr {:?}", parts)?,
         };
 
         Ok(val)

@@ -1,10 +1,10 @@
 use std::{collections::HashMap, convert::TryInto, io};
 
-use crate::{cid::Cid, Error, Result};
+use crate::{cid::Cid, Error, Result, ipld::kind::Kind};
 
 // TODO: https://github.com/cbor/test-vectors
 
-/// TAG ID for IPLD Content identifier
+/// TAG ID for IPLD Content identifier, registered with IANA.
 pub const TAG_IPLD_CID: u64 = 42;
 
 /// Recursion limit for nested Cbor objects.
@@ -238,25 +238,6 @@ pub enum Info {
     Indefinite,
 }
 
-impl From<SimpleValue> for Info {
-    fn from(sval: SimpleValue) -> Info {
-        use SimpleValue::*;
-
-        match sval {
-            Unassigned => Info::Tiny(0),
-            True => Info::Tiny(20),
-            False => Info::Tiny(21),
-            Null => Info::Tiny(22),
-            Undefined => Info::Tiny(23),
-            Reserved24(_) => Info::U8,
-            F16(_) => Info::U16,
-            F32(_) => Info::U32,
-            F64(_) => Info::U64,
-            Break => Info::Indefinite,
-        }
-    }
-}
-
 impl From<u8> for Info {
     fn from(b: u8) -> Info {
         match b {
@@ -428,6 +409,29 @@ pub enum SimpleValue {
     // 28..=30 unassigned
     Break, // 31
            // 32..=255 on-byte simple-value unassigned
+}
+
+impl TryFrom<SimpleValue> for Cbor {
+    type Error = Error;
+
+    fn try_from(sval: SimpleValue) -> Result<Info> {
+        use SimpleValue::*;
+
+        match sval {
+            Unassigned => {
+                err_at!(NotSupported, msg: format!("simple-value-unassigned")?
+            }
+            True => Info::Tiny(20),
+            False => Info::Tiny(21),
+            Null => Info::Tiny(22),
+            Undefined => Info::Tiny(23),
+            Reserved24(_) => Info::U8,
+            F16(_) => Info::U16,
+            F32(_) => Info::U32,
+            F64(_) => Info::U64,
+            Break => Info::Indefinite,
+        }
+    }
 }
 
 impl SimpleValue {

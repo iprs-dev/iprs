@@ -45,7 +45,7 @@ impl Skein {
     pub(crate) fn write(&mut self, bytes: &[u8]) -> Result<()> {
         match &self.digest {
             None => self.buf.extend(bytes),
-            Some(_) => err_at!(Invalid, msg: format!("finalized"))?,
+            Some(_) => err_at!(Invalid, msg: "finalized")?,
         };
         Ok(())
     }
@@ -279,9 +279,9 @@ impl Skein {
                 multicodec::SKEIN1024_1008 => skein_digest!(Skein1024, consts::U1008, &self.buf),
                 multicodec::SKEIN1024_1016 => skein_digest!(Skein1024, consts::U1016, &self.buf),
                 multicodec::SKEIN1024_1024 => skein_digest!(Skein1024, consts::U1024, &self.buf),
-                _ => err_at!(Invalid, msg: format!("unreachable"))?,
+                _ => err_at!(Invalid, msg: "unreachable")?,
             },
-            Some(_) => err_at!(Invalid, msg: format!("double finalize"))?,
+            Some(_) => err_at!(Invalid, msg: "double finalize")?,
         };
         self.digest = Some(digest);
         Ok(())
@@ -295,7 +295,7 @@ impl Skein {
     pub(crate) fn as_digest(&self) -> Result<&[u8]> {
         match &self.digest {
             Some(digest) => Ok(digest),
-            None => err_at!(Invalid, msg: format!("no digest")),
+            None => err_at!(Invalid, msg: "no digest"),
         }
     }
 }

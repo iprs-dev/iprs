@@ -15,7 +15,7 @@ impl Garlic32 {
                 let addr = parse_garlic32(addr)?;
                 (Garlic32 { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("garlic32 {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "garlic32 {:?}", parts)?,
         };
 
         Ok(val)
@@ -67,7 +67,7 @@ fn parse_garlic32(addr: &str) -> Result<Vec<u8>> {
     // characters is using an Encrypted Leaseset v2. all other
     // base32 addresses will always be exactly 52 characters
     if addr.len() < 55 && addr.len() != 52 {
-        err_at!(BadAddr, msg: format!("invalid i2p addr base32"))?
+        err_at!(BadAddr, msg: "invalid i2p addr base32")?
     } else {
         let addr = {
             let iter = repeat('=').take(8 - (addr.len() % 8));

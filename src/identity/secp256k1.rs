@@ -124,10 +124,7 @@ impl SecretKey {
         let sk_bytes = sk.as_mut();
         let secret_key = match secp256k1::SecretKey::parse_slice(&*sk_bytes) {
             Ok(secret_key) => Ok(secret_key),
-            err @ Err(_) => {
-                let msg = format!("failed to parse secp256k1 secret key");
-                err_at!(DecodeError, err, msg)
-            }
+            err @ Err(_) => err_at!(DecodeError, err, "secp256k1 secret key"),
         }?;
 
         sk_bytes.zeroize();
@@ -144,10 +141,7 @@ impl SecretKey {
         let val: Vec<DerObject> = {
             match FromDerObject::deserialize(der.as_mut().iter()) {
                 Ok(val) => Ok(val),
-                err @ Err(_) => {
-                    let msg = format!("Secp256k1 DER ECPrivateKey");
-                    err_at!(DecodeError, err, msg)
-                }
+                err @ Err(_) => err_at!(DecodeError, err, "Secp256k1 from DER"),
             }?
         };
 
@@ -155,16 +149,15 @@ impl SecretKey {
 
         let sk_val = match val.into_iter().nth(1) {
             Some(val) => val,
-            None => {
-                let msg = format!("Not enough elements in DER");
-                err_at!(DecodeError, msg: msg)?
-            }
+            None => err_at!(DecodeError, msg: "Not enough elements in DER")?,
         };
 
-        let mut sk_bytes: Vec<u8> = {
-            let res = FromDerObject::from_der_object(sk_val);
-            err_at!(DecodeError, res)?
-        };
+        let mut sk_bytes: Vec<u8> = err_at!(
+            //
+            DecodeError,
+            FromDerObject::from_der_object(sk_val)
+        )?;
+
         let sk = SecretKey::from_bytes(&mut sk_bytes)?;
         sk_bytes.zeroize();
 
@@ -189,10 +182,7 @@ impl SecretKey {
     fn sign_hash(&self, msg: &[u8]) -> Result<Vec<u8>> {
         let m = match Message::parse_slice(msg) {
             Ok(m) => Ok(m),
-            err @ Err(_) => {
-                let msg = format!("failed to parse secp256k1 digest");
-                err_at!(SigningError, err, msg)
-            }
+            err @ Err(_) => err_at!(SigningError, err, "secp256k1 digest"),
         }?;
         Ok(secp256k1::sign(&m, &self.secret_key)
             .0
@@ -238,10 +228,11 @@ impl PublicKey {
         let format = Some(secp256k1::PublicKeyFormat::Compressed);
         match secp256k1::PublicKey::parse_slice(k, format) {
             Ok(public_key) => Ok(PublicKey { public_key }),
-            Err(err) => {
-                let msg = format!("failed to parse secp256k1 public key");
-                err_at!(DecodeError, Err(err), msg)
-            }
+            Err(err) => err_at!(
+                DecodeError,
+                Err(err),
+                "failed to parse secp256k1 public key"
+            ),
         }
     }
 }

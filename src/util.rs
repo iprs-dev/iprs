@@ -36,12 +36,13 @@ use crate::{Error, Result};
 ///
 #[macro_export]
 macro_rules! err_at {
-    ($v:ident, msg:$m:expr) => {{
+    ($v:ident, msg: $($arg:expr),+) => {{
         use log::error;
 
         let prefix = format!("{}:{}", file!(), line!());
-        let err = Error::$v(prefix, format!("{}", $m));
-        error!(target: "libp2p", "{}", err);
+        let err = Error::$v(prefix, format!($($arg),+));
+
+        error!("{}", err);
         Err(err)
     }};
     ($v:ident, $e:expr) => {{
@@ -52,21 +53,23 @@ macro_rules! err_at {
             Err(err) => {
                 let prefix = format!("{}:{}", file!(), line!());
                 let err = Error::$v(prefix, format!("{}", err));
-                error!(target: "libp2p", "{}", err);
 
+                error!("{}", err);
                 Err(err)
             }
         }
     }};
-    ($v:ident, $e:expr, $m:expr) => {{
+    ($v:ident, $e:expr, $($arg:expr),+) => {{
         use log::error;
 
         match $e {
             Ok(val) => Ok(val),
             Err(err) => {
                 let prefix = format!("{}:{}", file!(), line!());
-                let err = Error::$v(prefix, format!("{} {}", $m, err));
-                error!(target: "libp2p", "{}", err);
+                let msg = format!($($arg),+);
+                let err = Error::$v(prefix, format!("{} {}", err, msg));
+
+                error!("{}", err);
 
                 Err(err)
             }

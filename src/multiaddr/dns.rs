@@ -15,7 +15,7 @@ impl Dns {
                 let addr = addr.as_bytes().to_vec();
                 (Dns { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("dns {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "dns {:?}", parts)?,
         };
 
         Ok(val)

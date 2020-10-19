@@ -17,7 +17,7 @@ impl Dccp {
                 let port: u16 = err_at!(BadAddr, port.parse())?;
                 (Dccp { port }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("dccp {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "dccp {:?}", parts)?,
         };
 
         Ok(val)

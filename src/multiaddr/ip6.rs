@@ -23,7 +23,7 @@ impl Ip6 {
                 let addr: net::Ipv6Addr = err_at!(BadAddr, addr.parse())?;
                 (Ip6 { addr }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("ip6 {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "ip6 {:?}", parts)?,
         };
 
         Ok(val)

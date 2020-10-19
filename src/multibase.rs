@@ -35,7 +35,7 @@ impl Multibase {
     pub fn with_char(ch: char, data: &[u8]) -> Result<Multibase> {
         let base = match multibase::Base::from_code(ch) {
             Ok(base) => Ok(base),
-            Err(e) => err_at!(BadInput, Err(e), format!("bad char `{}`", ch)),
+            Err(e) => err_at!(BadInput, Err(e), "bad char `{}`", ch),
         }?;
 
         Ok(Multibase {

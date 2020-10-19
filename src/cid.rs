@@ -148,29 +148,24 @@ impl Cid {
         let cid = match (chars.next(), chars.next()) {
             (Some('Q'), Some('m')) | (Some('1'), Some(_)) if text.len() == 46 => {
                 // legacy format v0.
-                let bytes = {
-                    let res = bs58::decode(text.as_bytes()).into_vec();
-                    err_at!(ParseError, res)?
-                };
+                let bytes = err_at!(ParseError, bs58::decode(text.as_bytes()).into_vec())?;
                 let (mh, _) = Multihash::decode(&bytes)?;
                 Cid::Zero(mh)
             }
-            (Some('Q'), Some('m')) | (Some('1'), Some(_)) => {
-                err_at!(ParseError, msg: format!("{}", text))?
-            }
+            (Some('Q'), Some('m')) | (Some('1'), Some(_)) => err_at!(ParseError, msg: "{}", text)?,
             _ => {
                 let (base, bytes) = {
                     let mb = Multibase::from_text(text)?;
                     match mb.to_bytes() {
                         Some(bytes) => (mb.to_base(), bytes),
-                        None => err_at!(ParseError, msg: format!("{}", text))?,
+                        None => err_at!(ParseError, msg: "{}", text)?,
                     }
                 };
                 // <multicodec-cidv1><codec><multihash>
                 let (codec, bytes) = Multicodec::decode(&bytes)?;
                 match codec.to_code() {
                     multicodec::CID_V1 => (),
-                    _ => err_at!(ParseError, msg: format!("CID {}", codec))?,
+                    _ => err_at!(ParseError, msg: "CID {}", codec)?,
                 }
 
                 let (content_type, bytes) = Multicodec::decode(bytes)?;
@@ -220,7 +215,7 @@ impl Cid {
                 let (codec, bytes) = Multicodec::decode(&bytes)?;
                 match codec.to_code() {
                     multicodec::CID_V1 => (),
-                    _ => err_at!(DecodeError, msg: format!("CID {}", codec))?,
+                    _ => err_at!(DecodeError, msg: "CID {}", codec)?,
                 }
                 let (content_type, bytes) = Multicodec::decode(bytes)?;
                 let (mh, bytes) = Multihash::decode(bytes)?;

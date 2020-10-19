@@ -17,7 +17,7 @@ impl Sctp {
                 let port: u16 = err_at!(BadAddr, port.parse())?;
                 (Sctp { port }, tail)
             }
-            _ => err_at!(BadAddr, msg: format!("sctp {:?}", parts))?,
+            _ => err_at!(BadAddr, msg: "sctp {:?}", parts)?,
         };
 
         Ok(val)
