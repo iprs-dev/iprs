@@ -1,6 +1,6 @@
 //! Module implement the data-model for IPLD.
 
-use std::{collections::HashMap, convert::TryFrom};
+use std::{collections::BTreeMap, convert::TryFrom};
 
 use crate::{cid::Cid, ipld::cbor::Cbor, Error, Result};
 
@@ -13,7 +13,7 @@ pub enum Kind {
     Bytes(Vec<u8>),
     Link(Cid),
     List(Vec<Kind>),
-    Dict(HashMap<String, Kind>),
+    Dict(BTreeMap<String, Kind>),
 }
 
 impl TryFrom<Cbor> for Kind {
@@ -36,14 +36,13 @@ impl TryFrom<Cbor> for Kind {
                 List(klist)
             }
             Major5(_, dict) => {
-                let mut kdict: HashMap<String, Kind> = HashMap::new();
+                let mut kdict: BTreeMap<String, Kind> = BTreeMap::new();
                 for (k, v) in dict.into_iter() {
                     kdict.insert(k, Kind::try_from(v)?);
                 }
                 Dict(kdict)
             }
             Major6(_, cbor::Tag::Link(cid)) => Link(cid),
-            Major6(_, cbor::Tag::Num(num)) => err_at!(FailConvert, msg: "unknown tag {}", num)?,
             Major7(_, cbor::SimpleValue::Unassigned) => {
                 err_at!(FailConvert, msg: "unassigned simple-value")?
             }

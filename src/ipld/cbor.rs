@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     convert::{TryFrom, TryInto},
     io,
 };
@@ -17,14 +17,14 @@ pub const RECURSION_LIMIT: u32 = 1000;
 /// Cbor type, sole purpose is to correspond with [Kind].
 #[derive(Clone)]
 pub enum Cbor {
-    Major0(Info, u64),                   // uint 0-23,24,25,26,27
-    Major1(Info, u64),                   // nint 0-23,24,25,26,27
-    Major2(Info, Vec<u8>),               // byts 0-23,24,25,26,27,31
-    Major3(Info, String),                // text 0-23,24,25,26,27,31
-    Major4(Info, Vec<Cbor>),             // list 0-23,24,25,26,27,31
-    Major5(Info, HashMap<String, Cbor>), // dict 0-23,24,25,26,27,31
-    Major6(Info, Tag),                   // tags similar to major0
-    Major7(Info, SimpleValue),           // type refer SimpleValue
+    Major0(Info, u64),                    // uint 0-23,24,25,26,27
+    Major1(Info, u64),                    // nint 0-23,24,25,26,27
+    Major2(Info, Vec<u8>),                // byts 0-23,24,25,26,27,31
+    Major3(Info, String),                 // text 0-23,24,25,26,27,31
+    Major4(Info, Vec<Cbor>),              // list 0-23,24,25,26,27,31
+    Major5(Info, BTreeMap<String, Cbor>), // dict 0-23,24,25,26,27,31
+    Major6(Info, Tag),                    // tags similar to major0
+    Major7(Info, SimpleValue),            // type refer SimpleValue
 }
 
 impl TryFrom<Kind> for Cbor {
@@ -172,7 +172,7 @@ impl Cbor {
                 Cbor::Major4(info, list)
             }
             Major::M5 => {
-                let mut dict: HashMap<String, Cbor> = HashMap::new();
+                let mut dict: BTreeMap<String, Cbor> = BTreeMap::new();
                 let n = decode_addnl(info, r)?;
                 for _ in 0..n {
                     let key = extract_key(Self::decode(r)?)?;
@@ -349,14 +349,12 @@ fn decode_addnl<R: io::Read>(info: Info, r: &mut R) -> Result<u64> {
 #[derive(Clone)]
 pub enum Tag {
     Link(Cid), // TAG_IPLD_CID
-    Num(u64),
 }
 
 impl From<Tag> for u64 {
     fn from(tag: Tag) -> u64 {
         match tag {
             Tag::Link(_) => TAG_IPLD_CID,
-            Tag::Num(num) => num,
         }
     }
 }
@@ -373,7 +371,6 @@ impl Tag {
                 };
                 Ok(1 + n)
             }
-            Tag::Num(num) => encode_addnl(*num, buf),
         }
     }
 
@@ -386,7 +383,7 @@ impl Tag {
                 }
                 _ => err_at!(FailCbor, msg: "invalid cid"),
             },
-            num => Ok(Tag::Num(num)),
+            num => err_at!(FailCbor, msg: "invalid tag value {}", num),
         }
     }
 }
@@ -419,12 +416,12 @@ impl TryFrom<SimpleValue> for Cbor {
             True => Cbor::Major7(Info::Tiny(20), sval),
             False => Cbor::Major7(Info::Tiny(21), sval),
             Null => Cbor::Major7(Info::Tiny(22), sval),
-            Undefined => Cbor::Major7(Info::Tiny(23), sval),
-            Reserved24(_) => Cbor::Major7(Info::U8, sval),
-            F16(_) => Cbor::Major7(Info::U16, sval),
+            Undefined => err_at!(FailConvert, msg: "simple-value-undefined")?,
+            Reserved24(_) => err_at!(FailConvert, msg: "simple-value-unassigned1")?,
+            F16(_) => err_at!(FailConvert, msg: "simple-value-f16")?,
             F32(_) => Cbor::Major7(Info::U32, sval),
             F64(_) => Cbor::Major7(Info::U64, sval),
-            Break => Cbor::Major7(Info::Indefinite, sval),
+            Break => err_at!(FailConvert, msg: "simple-value-break")?,
         };
 
         Ok(val)
@@ -465,17 +462,10 @@ impl SimpleValue {
             Info::Tiny(20) => SimpleValue::True,
             Info::Tiny(21) => SimpleValue::False,
             Info::Tiny(22) => SimpleValue::Null,
-            Info::Tiny(23) => SimpleValue::Undefined,
-            Info::Tiny(_) => SimpleValue::Unassigned,
-            Info::U8 => {
-                err_at!(IOError, r.read(&mut scratch[..1]))?;
-                SimpleValue::Reserved24(scratch[0])
-            }
-            Info::U16 => {
-                err_at!(IOError, r.read(&mut scratch[..2]))?;
-                let val = u16::from_be_bytes(scratch[..2].try_into().unwrap());
-                SimpleValue::F16(val)
-            }
+            Info::Tiny(23) => err_at!(FailCbor, msg: "simple-value-undefined")?,
+            Info::Tiny(_) => err_at!(FailCbor, msg: "simple-value-unassigned")?,
+            Info::U8 => err_at!(FailCbor, msg: "simple-value-unassigned1")?,
+            Info::U16 => err_at!(FailCbor, msg: "simple-value-f16")?,
             Info::U32 => {
                 err_at!(IOError, r.read(&mut scratch[..4]))?;
                 let val = f32::from_be_bytes(scratch[..4].try_into().unwrap());
@@ -486,10 +476,10 @@ impl SimpleValue {
                 let val = f64::from_be_bytes(scratch[..8].try_into().unwrap());
                 SimpleValue::F64(val)
             }
-            Info::Reserved28 => SimpleValue::Unassigned,
-            Info::Reserved29 => SimpleValue::Unassigned,
-            Info::Reserved30 => SimpleValue::Unassigned,
-            Info::Indefinite => SimpleValue::Break,
+            Info::Reserved28 => err_at!(FailCbor, msg: "simple-value-reserved")?,
+            Info::Reserved29 => err_at!(FailCbor, msg: "simple-value-reserved")?,
+            Info::Reserved30 => err_at!(FailCbor, msg: "simple-value-reserved")?,
+            Info::Indefinite => err_at!(FailCbor, msg: "simple-value-break")?,
         };
         Ok(val)
     }
