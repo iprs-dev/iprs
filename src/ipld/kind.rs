@@ -4,10 +4,17 @@ use std::{collections::BTreeMap, convert::TryFrom};
 
 use crate::{cid::Cid, ipld::cbor::Cbor, Error, Result};
 
+// NOTE: Operational behaviour on data.
+//
+// * Serialization and De-serialization.
+// * Hash-digest on serialized block.
+// * Schema-matching on deserialized kind.
+// * Indexing operation within list and map kinds.
+
 pub enum Kind {
     Null,
     Bool(bool),
-    Integer(i128),
+    Integer(i128), // TODO: i128 might an overkill, 8 more bytes than 64-bit !!
     Float(f64),
     Text(String),
     Bytes(Vec<u8>),

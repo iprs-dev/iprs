@@ -1,14 +1,22 @@
 Cbor: Data model serialization in Rust
 
-.-----------------.    .------------.    .--------.
-| Serialized data |<-->| Data-model |<-->| Schema |
-˙-----------------˙    ˙------------˙    ˙--------˙
+```text
+    .-----------------.    .------------.    .--------.
+    | Serialized data |<-->| Data-model |<-->| Schema |
+    ˙-----------------˙    ˙------------˙    ˙--------˙
+```
 
 This writeup focus on the data-model definition in Rust language
-and its (de)serialization in CBOR format.
+and its (de)serialization in CBOR format. Draft implementation can be
+found here,
+
+* kind: https://github.com/iprs-dev/iprs/blob/master/src/ipld/kind.rs
+* cbor: https://github.com/iprs-dev/iprs/blob/master/src/ipld/cbor.rs
+
 
 **Data model**
 
+```rust
 enum Kind {
     Null,
     Bool(bool),
@@ -20,10 +28,11 @@ enum Kind {
     List(Vec<Kind>),
     Dict(BTreeMap<String, Kind>),
 }
+```
 
-* `Null`, `Bool`, `Integer`, `Float`, `Bytes`, `Text`, `Link` are the scalar
-   kinds.
-* `List` and `Dict` are recursive kinds.
+* Null, Bool, Integer, Float, Bytes, Text, Link are the scalar
+  kinds.
+* List and Dict are recursive kinds.
 * Integer, is represeted as signed 128-bit number, and overflow/underflow are
   treated as errors.
 * Float is always represented as 64-bit at the data-model layer.
@@ -77,3 +86,4 @@ depth.
 * Looks like serialization and deserialization is not isomorphic across codec.
   even if same codec is used but implemented by different language, can
   it be isomorphic ?
+
