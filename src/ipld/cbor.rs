@@ -4,7 +4,7 @@ use std::{
     io,
 };
 
-use crate::{cid::Cid, ipld::kind::Kind, Error, Result};
+use crate::{cid::Cid, ipld::kind::Node, Error, Result};
 
 // TODO: https://github.com/cbor/test-vectors
 
@@ -14,7 +14,7 @@ pub const TAG_IPLD_CID: u64 = 42;
 /// Recursion limit for nested Cbor objects.
 pub const RECURSION_LIMIT: u32 = 1000;
 
-/// Cbor type, sole purpose is to correspond with [Kind].
+/// Cbor type, sole purpose is to correspond with [Basic] data-model.
 #[derive(Clone)]
 pub enum Cbor {
     Major0(Info, u64),                    // uint 0-23,24,25,26,27
@@ -27,40 +27,68 @@ pub enum Cbor {
     Major7(Info, SimpleValue),            // type refer SimpleValue
 }
 
-impl TryFrom<Kind> for Cbor {
+impl TryFrom<&dyn Node> for Cbor
+where
+    dyn Node: Clone,
+{
     type Error = Error;
 
-    fn try_from(kind: Kind) -> Result<Cbor> {
-        use crate::ipld::kind::Kind::*;
+    fn try_from(node: &dyn Node) -> Result<Cbor> {
+        use crate::ipld::kind::{Key, Kind::*};
         use Cbor::*;
 
-        let val: Cbor = match kind {
+        let val: Cbor = match node.to_kind() {
             Null => Cbor::try_from(SimpleValue::Null)?,
-            Bool(true) => Cbor::try_from(SimpleValue::True)?,
-            Bool(false) => Cbor::try_from(SimpleValue::False)?,
-            Integer(num) if num >= 0 => {
-                let num: u64 = err_at!(FailConvert, num.try_into())?;
-                Major0(num.into(), num)
-            }
-            Integer(num) => {
-                let num: u64 = err_at!(FailConvert, u64::try_from(i128::abs(num)))? - 1;
-                Major1(num.into(), num)
-            }
-            Float(num) => Cbor::try_from(SimpleValue::F64(num))?,
-            Bytes(byts) => {
+            Bool => match node.to_bool().unwrap() {
+                true => Cbor::try_from(SimpleValue::True)?,
+                false => Cbor::try_from(SimpleValue::False)?,
+            },
+            Integer => match node.to_integer().unwrap() {
+                num if num >= 0 => {
+                    let num: u64 = err_at!(FailConvert, num.try_into())?;
+                    Major0(num.into(), num)
+                }
+                num => {
+                    let num: u64 = err_at!(FailConvert, u64::try_from(i128::abs(num)))? - 1;
+                    Major1(num.into(), num)
+                }
+            },
+            Float => Cbor::try_from(SimpleValue::F64(node.to_float().unwrap()))?,
+            Bytes => {
+                let byts = node.as_bytes().unwrap().to_vec();
                 let n: u64 = err_at!(FailConvert, byts.len().try_into())?;
                 Major2(n.into(), byts)
             }
-            Text(text) => {
+            Text => {
+                let text = node.as_string().unwrap()?.to_string();
                 let n: u64 = err_at!(FailConvert, text.len().try_into())?;
                 Major3(n.into(), text)
             }
-            Link(cid) => {
-                let tag = Tag::Link(cid);
+            Link => {
+                let tag = Tag::Link(node.as_link().unwrap().clone());
                 Major6(u64::from(tag.clone()).into(), tag)
             }
-            List(list) => todo!(),
-            Dict(dict) => todo!(),
+            List => {
+                let mut items = vec![];
+                for x in node.iter() {
+                    items.push(Cbor::try_from(x)?)
+                }
+                let n: u64 = err_at!(FailConvert, items.len().try_into())?;
+                Major4(n.into(), items)
+            }
+            Map => {
+                let mut map: BTreeMap<String, Cbor> = BTreeMap::new();
+                for (key, value) in node.iter_entries() {
+                    let key = match key {
+                        Key::Text(key) => Ok(key),
+                        _ => err_at!(FailConvert, msg: "invalid key type"),
+                    }?;
+                    let value = Cbor::try_from(value)?;
+                    map.insert(key, value);
+                }
+                let n: u64 = err_at!(FailConvert, map.len().try_into())?;
+                Major5(n.into(), map)
+            }
         };
 
         Ok(val)

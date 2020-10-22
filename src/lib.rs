@@ -11,6 +11,8 @@
 //! * Between rustdoc and unit-test, choose rustdoc first.
 
 #![feature(box_syntax, box_patterns)]
+#![feature(trivial_bounds)]
+#![allow(trivial_bounds)]
 
 use std::{error, fmt, result};
 
@@ -51,6 +53,7 @@ pub enum Error {
     IOError(String, String),
     SysFail(String, String),
     IPCFail(String, String),
+    IndexFail(String, String),
     FailCbor(String, String),
     ThreadFail(String, String),
     FilePath(String, String),
@@ -77,6 +80,7 @@ impl fmt::Display for Error {
             IOError(p, msg) => write!(f, "{} IOError: {}", p, msg),
             SysFail(p, msg) => write!(f, "{} SysFail: {}", p, msg),
             IPCFail(p, msg) => write!(f, "{} IPCFail: {}", p, msg),
+            IndexFail(p, msg) => write!(f, "{} IndexFail: {}", p, msg),
             FailCbor(p, msg) => write!(f, "{} FailCbor: {}", p, msg),
             ThreadFail(p, msg) => write!(f, "{} ThreadFail: {}", p, msg),
             FilePath(p, msg) => write!(f, "{} FilePath: {}", p, msg),
