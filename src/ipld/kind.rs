@@ -459,3 +459,4 @@ impl Node for Vec<Box<dyn Node>> {
 // * Hash-digest on serialized block.
 // * Schema-matching on deserialized kind.
 // * Indexing operation within list and map kinds.
+// * Iteration on list and map kinds.
