@@ -27,10 +27,7 @@ pub enum Cbor {
     Major7(Info, SimpleValue),            // type refer SimpleValue
 }
 
-impl TryFrom<&dyn Node> for Cbor
-where
-    dyn Node: Clone,
-{
+impl TryFrom<&dyn Node> for Cbor {
     type Error = Error;
 
     fn try_from(node: &dyn Node) -> Result<Cbor> {
@@ -188,7 +185,7 @@ impl Cbor {
                 let n: usize = decode_addnl(info, r)?.try_into().unwrap();
                 let mut data = vec![0; n];
                 err_at!(IOError, r.read(&mut data))?;
-                let s = err_at!(FailCbor, std::str::from_utf8(&data))?;
+                let s = unsafe { std::str::from_utf8_unchecked(&data) };
                 Cbor::Major3(info, s.to_string())
             }
             Major::M4 => {
@@ -515,7 +512,10 @@ impl SimpleValue {
 
 fn extract_key(val: Cbor) -> Result<String> {
     match val {
-        Cbor::Major3(_, s) => Ok(s),
+        Cbor::Major3(_, s) => {
+            let key = err_at!(FailConvert, std::str::from_utf8(s.as_bytes()))?;
+            Ok(key.to_string())
+        }
         _ => err_at!(FailCbor, msg: "invalid key"),
     }
 }

@@ -6,11 +6,21 @@ use crate::{cid::Cid, ipld::cbor::Cbor, Error, Result};
 
 /// Every thing is a Node, almost.
 pub trait Node {
+    fn as_key(&self) -> Option<Key>;
+
     /// return the kind.
     fn to_kind(&self) -> Kind;
 
-    /// if kind is recursive type, key lookup.
+    /// use key as index within the container.
     fn get(&self, key: &Key) -> Result<&dyn Node>;
+
+    /// set (key, value) within the container, using key as the index,
+    /// and, return a new mutated version of node.
+    fn set(&self, key: &Key, value: Box<dyn Node>) -> Result<Box<dyn Node>>;
+
+    /// delete the entry identified by key within the container, and,
+    /// return a new mutated version of node.
+    fn delete(&self, key: &Key) -> Result<Box<dyn Node>>;
 
     /// iterate over values.
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Node> + 'a>;
@@ -41,13 +51,24 @@ pub trait Node {
 
 /// A subset of Basic, that can be used to index into recursive type, like
 /// list and map. Can be seen as the path-segment.
-#[derive(Clone)]
 pub enum Key {
-    Null,
     Bool(bool),
     Offset(usize),
     Text(String),
     Bytes(Vec<u8>),
+    Keyable(Box<dyn ToString>),
+}
+
+impl Clone for Key {
+    fn clone(&self) -> Self {
+        match self {
+            val @ Key::Bool(_) => val.clone(),
+            val @ Key::Offset(_) => val.clone(),
+            val @ Key::Text(_) => val.clone(),
+            val @ Key::Bytes(_) => val.clone(),
+            Key::Keyable(val) => Key::Keyable(Box::new(val.to_string())),
+        }
+    }
 }
 
 impl fmt::Display for Key {
@@ -55,11 +76,11 @@ impl fmt::Display for Key {
         use Key::*;
 
         match self {
-            Null => write!(f, "key-null"),
             Bool(val) => write!(f, "key-bool-{}", val),
             Offset(val) => write!(f, "key-off-{}", val),
             Text(val) => write!(f, "key-str-{}", val),
             Bytes(val) => write!(f, "key-bytes-{:?}", val), // TODO: use base64 encoding.
+            Keyable(val) => write!(f, "key-key-{}", val.to_string()),
         }
     }
 }
@@ -71,11 +92,11 @@ impl PartialEq for Key {
         use Key::*;
 
         match (self, other) {
-            (Null, Null) => true,
             (Bool(a), Bool(b)) => a == b,
             (Offset(a), Offset(b)) => a == b,
             (Text(a), Text(b)) => a == b,
             (Bytes(a), Bytes(b)) => a == b,
+            (Keyable(a), Keyable(b)) => a.to_string() == b.to_string(),
             (_, _) => false,
         }
     }
@@ -93,12 +114,12 @@ impl Ord for Key {
 
         match self.to_variant().cmp(&other.to_variant()) {
             cmp::Ordering::Equal => match (self, other) {
-                (Null, Null) => cmp::Ordering::Equal,
                 (Bool(false), Bool(true)) => cmp::Ordering::Less,
                 (Bool(true), Bool(false)) => cmp::Ordering::Greater,
                 (Offset(a), Offset(b)) => a.cmp(b),
                 (Text(a), Text(b)) => a.cmp(b),
                 (Bytes(a), Bytes(b)) => a.cmp(b),
+                (Keyable(a), Keyable(b)) => a.to_string().cmp(&b.to_string()),
                 (_, _) => unreachable!(),
             },
             cval => cval,
@@ -111,11 +132,11 @@ impl Key {
         use Key::*;
 
         match self {
-            Null => 10,
             Bool(_) => 20,
             Offset(_) => 30,
             Text(_) => 40,
             Bytes(_) => 50,
+            Keyable(_) => 60,
         }
     }
 }
@@ -146,28 +167,24 @@ pub enum Kind {
     Map,
 }
 
-impl Clone for Basic
-where
-    dyn Node: Clone,
-{
-    fn clone(&self) -> Basic {
+impl Node for Basic {
+    fn as_key(&self) -> Option<Key> {
+        use std::str::from_utf8;
         use Basic::*;
 
         match self {
-            Null => Null,
-            Bool(val) => Bool(val.clone()),
-            Integer(val) => Integer(val.clone()),
-            Float(val) => Float(val.clone()),
-            Text(val) => Text(val.clone()),
-            Bytes(val) => Bytes(val.clone()),
-            Link(val) => Link(val.clone()),
-            List(val) => List(val.clone()),
-            Map(val) => Map(val.clone()),
+            Null => None,
+            Bool(val) => Some(Key::Bool(val.clone())),
+            Integer(val) => Some(Key::Offset(usize::try_from(val.clone()).unwrap())),
+            Float(_val) => None,
+            Text(val) => Some(Key::Text(from_utf8(val.as_bytes()).ok()?.to_string())),
+            Bytes(val) => Some(Key::Bytes(val.clone())),
+            Link(_val) => None,
+            List(val) => val.as_key(),
+            Map(val) => val.as_key(),
         }
     }
-}
 
-impl Node for Basic {
     fn to_kind(&self) -> Kind {
         use Basic::*;
 
@@ -188,6 +205,22 @@ impl Node for Basic {
         match self {
             Basic::List(list) => list.get(key),
             Basic::Map(map) => map.get(key),
+            _ => err_at!(IndexFail, msg: "cannot index scalar type"),
+        }
+    }
+
+    fn set(&self, key: &Key, value: Box<dyn Node>) -> Result<Box<dyn Node>> {
+        match self {
+            Basic::List(list) => list.set(key, value),
+            Basic::Map(map) => map.set(key, value),
+            _ => err_at!(IndexFail, msg: "cannot index scalar type"),
+        }
+    }
+
+    fn delete(&self, key: &Key) -> Result<Box<dyn Node>> {
+        match self {
+            Basic::List(list) => list.delete(key),
+            Basic::Map(map) => map.delete(key),
             _ => err_at!(IndexFail, msg: "cannot index scalar type"),
         }
     }
@@ -329,6 +362,10 @@ impl TryFrom<Cbor> for Basic {
 }
 
 impl Node for BTreeMap<Key, Box<dyn Node>> {
+    fn as_key(&self) -> Option<Key> {
+        todo!()
+    }
+
     fn to_kind(&self) -> Kind {
         Kind::Map
     }
@@ -338,6 +375,14 @@ impl Node for BTreeMap<Key, Box<dyn Node>> {
             Some(val) => Ok(val.as_ref()),
             None => err_at!(IndexFail, msg: "missing key in btreemap {}", key),
         }
+    }
+
+    fn set(&self, _key: &Key, _value: Box<dyn Node>) -> Result<Box<dyn Node>> {
+        todo!()
+    }
+
+    fn delete(&self, _key: &Key) -> Result<Box<dyn Node>> {
+        todo!()
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Node> + 'a> {
@@ -386,6 +431,10 @@ impl Node for BTreeMap<Key, Box<dyn Node>> {
 }
 
 impl Node for Vec<Box<dyn Node>> {
+    fn as_key(&self) -> Option<Key> {
+        todo!()
+    }
+
     fn to_kind(&self) -> Kind {
         Kind::List
     }
@@ -402,6 +451,14 @@ impl Node for Vec<Box<dyn Node>> {
             }
             _ => err_at!(IndexFail, msg: "can't index scalar-kind"),
         }
+    }
+
+    fn set(&self, _key: &Key, _value: Box<dyn Node>) -> Result<Box<dyn Node>> {
+        todo!()
+    }
+
+    fn delete(&self, _key: &Key) -> Result<Box<dyn Node>> {
+        todo!()
     }
 
     fn iter<'a>(&'a self) -> Box<dyn Iterator<Item = &dyn Node> + 'a> {
