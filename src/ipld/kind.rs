@@ -97,6 +97,8 @@ impl PartialEq for Key {
             (Text(a), Text(b)) => a == b,
             (Bytes(a), Bytes(b)) => a == b,
             (Keyable(a), Keyable(b)) => a.to_string() == b.to_string(),
+            (Text(a), Keyable(b)) => a == &b.to_string(),
+            (Keyable(a), Text(b)) => &a.to_string() == b,
             (_, _) => false,
         }
     }
@@ -112,17 +114,16 @@ impl Ord for Key {
     fn cmp(&self, other: &Self) -> cmp::Ordering {
         use Key::*;
 
-        match self.to_variant().cmp(&other.to_variant()) {
-            cmp::Ordering::Equal => match (self, other) {
-                (Bool(false), Bool(true)) => cmp::Ordering::Less,
-                (Bool(true), Bool(false)) => cmp::Ordering::Greater,
-                (Offset(a), Offset(b)) => a.cmp(b),
-                (Text(a), Text(b)) => a.cmp(b),
-                (Bytes(a), Bytes(b)) => a.cmp(b),
-                (Keyable(a), Keyable(b)) => a.to_string().cmp(&b.to_string()),
-                (_, _) => unreachable!(),
-            },
-            cval => cval,
+        match (self, other) {
+            (Bool(false), Bool(true)) => cmp::Ordering::Less,
+            (Bool(true), Bool(false)) => cmp::Ordering::Greater,
+            (Offset(a), Offset(b)) => a.cmp(b),
+            (Text(a), Text(b)) => a.cmp(b),
+            (Bytes(a), Bytes(b)) => a.cmp(b),
+            (Keyable(a), Keyable(b)) => a.to_string().cmp(&b.to_string()),
+            (Text(a), Keyable(b)) => a.cmp(&b.to_string()),
+            (Keyable(a), Text(b)) => a.to_string().cmp(&b),
+            (a, b) => a.to_variant().cmp(&b.to_variant()),
         }
     }
 }
@@ -134,9 +135,8 @@ impl Key {
         match self {
             Bool(_) => 20,
             Offset(_) => 30,
-            Text(_) => 40,
+            Text(_) | Keyable(_) => 40,
             Bytes(_) => 50,
-            Keyable(_) => 60,
         }
     }
 }
@@ -147,7 +147,7 @@ pub enum Basic {
     Bool(bool),
     Integer(i128), // TODO: i128 might an overkill, 8 more bytes than 64-bit !!
     Float(f64),
-    Text(String),
+    Text(Vec<u8>),
     Bytes(Vec<u8>),
     Link(Cid),
     List(Box<dyn Node + 'static>),
@@ -177,7 +177,7 @@ impl Node for Basic {
             Bool(val) => Some(Key::Bool(val.clone())),
             Integer(val) => Some(Key::Offset(usize::try_from(val.clone()).unwrap())),
             Float(_val) => None,
-            Text(val) => Some(Key::Text(from_utf8(val.as_bytes()).ok()?.to_string())),
+            Text(val) => Some(Key::Text(from_utf8(val).ok()?.to_string())),
             Bytes(val) => Some(Key::Bytes(val.clone())),
             Link(_val) => None,
             List(val) => val.as_key(),
@@ -281,14 +281,15 @@ impl Node for Basic {
         use std::str::from_utf8;
 
         match self {
-            Basic::Text(val) => Some(err_at!(FailConvert, from_utf8(val.as_bytes()))),
+            Basic::Text(val) => Some(err_at!(FailConvert, from_utf8(val))),
             _ => None,
         }
     }
 
     fn as_ffi_string(&self) -> Option<&str> {
+        use std::str::from_utf8_unchecked;
         match self {
-            Basic::Text(val) => Some(val),
+            Basic::Text(val) => Some(unsafe { from_utf8_unchecked(val) }),
             _ => None,
         }
     }

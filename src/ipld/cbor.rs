@@ -20,7 +20,7 @@ pub enum Cbor {
     Major0(Info, u64),                    // uint 0-23,24,25,26,27
     Major1(Info, u64),                    // nint 0-23,24,25,26,27
     Major2(Info, Vec<u8>),                // byts 0-23,24,25,26,27,31
-    Major3(Info, String),                 // text 0-23,24,25,26,27,31
+    Major3(Info, Vec<u8>),                // text 0-23,24,25,26,27,31
     Major4(Info, Vec<Cbor>),              // list 0-23,24,25,26,27,31
     Major5(Info, BTreeMap<String, Cbor>), // dict 0-23,24,25,26,27,31
     Major6(Info, Tag),                    // tags similar to major0
@@ -57,7 +57,7 @@ impl TryFrom<&dyn Node> for Cbor {
                 Major2(n.into(), byts)
             }
             Text => {
-                let text = node.as_string().unwrap()?.to_string();
+                let text = node.as_ffi_string().unwrap().as_bytes().to_vec();
                 let n: u64 = err_at!(FailConvert, text.len().try_into())?;
                 Major3(n.into(), text)
             }
@@ -121,7 +121,7 @@ impl Cbor {
             Cbor::Major3(info, text) => {
                 let n = encode_hdr(Major::M3, *info, buf)?;
                 let m = encode_addnl(text.len().try_into().unwrap(), buf)?;
-                buf.copy_from_slice(text.as_bytes());
+                buf.copy_from_slice(text);
                 Ok(n + m + text.len())
             }
             Cbor::Major4(info, list) => {
@@ -142,7 +142,7 @@ impl Cbor {
                         let num: u64 = key.len().try_into().unwrap();
                         num.into()
                     };
-                    acc += Cbor::Major3(info, key.clone()).encode(buf)?;
+                    acc += Cbor::Major3(info, key.as_bytes().to_vec()).encode(buf)?;
                     acc += val.do_encode(buf, depth + 1)?;
                 }
                 Ok(n + m + acc)
@@ -185,8 +185,7 @@ impl Cbor {
                 let n: usize = decode_addnl(info, r)?.try_into().unwrap();
                 let mut data = vec![0; n];
                 err_at!(IOError, r.read(&mut data))?;
-                let s = unsafe { std::str::from_utf8_unchecked(&data) };
-                Cbor::Major3(info, s.to_string())
+                Cbor::Major3(info, data)
             }
             Major::M4 => {
                 let mut list: Vec<Cbor> = vec![];
@@ -513,7 +512,7 @@ impl SimpleValue {
 fn extract_key(val: Cbor) -> Result<String> {
     match val {
         Cbor::Major3(_, s) => {
-            let key = err_at!(FailConvert, std::str::from_utf8(s.as_bytes()))?;
+            let key = err_at!(FailConvert, std::str::from_utf8(&s))?;
             Ok(key.to_string())
         }
         _ => err_at!(FailCbor, msg: "invalid key"),
