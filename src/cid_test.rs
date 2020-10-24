@@ -10,7 +10,7 @@ fn test_cid_v1() {
         Cid::new_v1(base, multicodec::DAG_PB.into(), data).unwrap()
     };
 
-    let return_cid = Cid::decode(&cid.encode().unwrap()).unwrap();
+    let return_cid = Cid::decode(&cid.encode().unwrap()).unwrap().0;
     assert_eq!(cid, return_cid);
 
     let return_cid = Cid::from_text(&cid.to_text(None).unwrap()).unwrap();
@@ -31,7 +31,7 @@ fn test_cid_v0() {
     let data = b"beep boop";
     let cid = Cid::new_v0(data).unwrap();
 
-    let return_cid = Cid::decode(&cid.encode().unwrap()).unwrap();
+    let return_cid = Cid::decode(&cid.encode().unwrap()).unwrap().0;
     assert_eq!(cid, return_cid);
 
     let return_cid = Cid::from_text(&cid.to_text(None).unwrap()).unwrap();
