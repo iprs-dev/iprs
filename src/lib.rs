@@ -13,6 +13,9 @@
 #![feature(box_syntax, box_patterns)]
 #![feature(trivial_bounds)]
 #![allow(trivial_bounds)]
+#![feature(test)]
+
+extern crate test;
 
 use std::{error, fmt, result};
 
