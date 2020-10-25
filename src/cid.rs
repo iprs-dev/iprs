@@ -190,8 +190,8 @@ impl Cid {
                     let codec = Multicodec::from_code(multicodec::CID_V1)?;
                     codec.encode()?
                 };
-                data.extend(content_type.encode()?);
-                data.extend(mh.encode()?);
+                data.extend_from_slice(&content_type.encode()?);
+                data.extend_from_slice(&mh.encode()?);
                 let base = base.unwrap_or(fallback_base.clone());
                 Multibase::with_base(base.clone(), &data)?.to_text()?
             }

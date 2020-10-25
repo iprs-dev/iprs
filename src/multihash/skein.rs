@@ -44,7 +44,7 @@ impl Skein {
 
     pub(crate) fn write(&mut self, bytes: &[u8]) -> Result<()> {
         match &self.digest {
-            None => self.buf.extend(bytes),
+            None => self.buf.extend_from_slice(bytes),
             Some(_) => err_at!(Invalid, msg: "finalized")?,
         };
         Ok(())

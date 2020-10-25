@@ -114,8 +114,8 @@ impl PeerId {
                 let codec: Multicodec = multicodec::SHA2_256.into();
                 let bytes = {
                     let mut data = vec![];
-                    data.extend(&rand::thread_rng().gen::<[u8; 32]>());
-                    data.extend(&rand::thread_rng().gen::<[u8; 32]>());
+                    data.extend_from_slice(&rand::thread_rng().gen::<[u8; 32]>());
+                    data.extend_from_slice(&rand::thread_rng().gen::<[u8; 32]>());
                     data
                 };
                 (bytes, codec)
@@ -179,9 +179,9 @@ impl PeerId {
         };
         {
             let codec = Multicodec::from_code(multicodec::LIBP2P_KEY)?;
-            data.extend(codec.encode()?);
+            data.extend_from_slice(&codec.encode()?);
         };
-        data.extend(self.mh.encode()?);
+        data.extend_from_slice(&self.mh.encode()?);
 
         Ok(Multibase::with_base(base.clone(), &data)?.to_text()?)
     }

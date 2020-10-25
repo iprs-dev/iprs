@@ -35,7 +35,7 @@ impl Multiformat {
         let data = match self {
             Multibase(codec, mb) => {
                 let mut out = codec.encode()?;
-                out.extend(mb.encode()?.as_bytes());
+                out.extend_from_slice(mb.encode()?.as_bytes());
                 out
             }
             Multihash(_codec, mh) => {
