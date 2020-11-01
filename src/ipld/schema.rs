@@ -1,43 +1,58 @@
-struct Schema {
+use std::str::FromStr;
+
+use crate::{Error, Result};
+
+#[derive(Debug)]
+pub enum Token {
+    Newline(String),
+}
+
+#[derive(Debug)]
+pub enum Scalar {
+    Str,
+}
+
+#[derive(Debug)]
+pub enum Kind {
+    Str,
+}
+
+impl From<Scalar> for Kind {
+    fn from(val: Scalar) -> Kind {
+        match val {
+            Scalar::Str => Kind::Str,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Type {
     name: String,
-    typ: Type,
-    mods: Vec<Modifier>,
-    repr: Representation,
+    kind: Kind,
 }
 
-enum Type {
-    Null,
-    Bool,
-    Integer,
-    Float,
-    Text,
-    Bytes,
-    List,  // only homogenous value in list
-    Map,   // only string keys.
-    Union, // as map or varying data-mode-kinds for kinded union
-    Tuple, // as map in data-model
-    Enum,  // either as string or int.
-    Copyy,
+impl From<(String, Kind)> for Type {
+    fn from((name, kind): (String, Kind)) -> Type {
+        Type { name, kind }
+    }
 }
 
-struct Struct {
-    elements: Vec<Element>,
+#[derive(Debug)]
+pub enum Record {
+    Type(Type),
 }
 
-enum Modifier {
-    Nullable,  // for map-value, list-value and struct fields
-    Optional,  // for struct-fields
-    Implicite, // for struct-fields
+impl From<Type> for Record {
+    fn from(val: Type) -> Record {
+        Record::Type(val)
+    }
 }
 
-enum Representation {
-    Keyed,
-    Envelope,
-    Inline,
-}
+#[derive(Debug)]
+pub struct Records(Vec<Record>);
 
-// Examples
-//
-// {Foo:Bar}
-//
-//
+impl From<Vec<Record>> for Records {
+    fn from(arr: Vec<Record>) -> Self {
+        Records(arr)
+    }
+}

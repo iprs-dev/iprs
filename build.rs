@@ -14,8 +14,7 @@ macro_rules! check_exit {
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-
-    check_exit!(build_proto(), 1)
+    check_exit!(build_proto(), 1);
 }
 
 fn build_proto() -> Result<(), String> {
